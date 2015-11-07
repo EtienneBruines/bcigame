@@ -92,7 +92,6 @@ func (m *Menu) Update(entity *engi.Entity, dt float32) {
 		} else {
 			m.openMenu()
 		}
-		m.menuActive = !m.menuActive
 	}
 
 	if m.menuActive {
@@ -118,12 +117,11 @@ func (m *Menu) Update(entity *engi.Entity, dt float32) {
 			m.items[oldFocus].menuBackground.AddComponent(m.defaultBackground)
 			m.items[m.menuFocus].menuBackground.AddComponent(m.focusBackground)
 		}
+
+		if engi.Keys.Get(engi.Space).JustPressed() || engi.Keys.Get(engi.Enter).JustPressed() {
+			m.items[m.menuFocus].Callback()
+		}
 	}
-
-	// Check if any button/item is being hovered
-
-	// Check if any button/item is clicked
-
 }
 
 func (m *Menu) closeMenu() {
@@ -134,6 +132,8 @@ func (m *Menu) closeMenu() {
 	for _, e := range m.menuEntities {
 		m.World.RemoveEntity(e)
 	}
+
+	m.menuActive = false
 }
 
 func (m *Menu) openMenu() {
@@ -213,4 +213,6 @@ func (m *Menu) openMenu() {
 
 		offsetY += menuItemHeight + menuItemPadding
 	}
+
+	m.menuActive = true
 }
