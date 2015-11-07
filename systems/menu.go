@@ -26,15 +26,22 @@ var (
 type MenuItem struct {
 	Text     string
 	Callback func()
+
+	menuBackground *engi.Entity
+	menuLabel      *engi.Entity
 }
 
 type Menu struct {
 	*engi.System
 
-	menuActive   bool
-	menuEntities []*engi.Entity
-	menuFocus    int
-	items        []MenuItem
+	defaultBackground *engi.RenderComponent
+	focusBackground   *engi.RenderComponent
+
+	menuActive       bool
+	menuEntities     []*engi.Entity
+	menuItemEntities []*engi.Entity
+	menuFocus        int
+	items            []*MenuItem
 }
 
 func (*Menu) Type() string {
@@ -47,19 +54,34 @@ func (m *Menu) New() {
 	e := engi.NewEntity([]string{m.Type()})
 	e.AddComponent(&engi.UnpauseComponent{})
 	m.AddEntity(e)
-	m.items = []MenuItem{
-		{"New Game", func() {
+	m.items = []*MenuItem{
+		{Text: "New Game", Callback: func() {
 			log.Println("New game")
 			m.closeMenu()
 		}},
-		{"Calibrate", func() {
+		{Text: "Calibrate", Callback: func() {
 			log.Println("Calibrate")
 			m.closeMenu()
 		}},
-		{"Exit", func() {
+		{Text: "Exit", Callback: func() {
 			os.Exit(0)
 		}},
 	}
+
+	// TODO: handle resizing of window
+	menuWidth := (engi.Width() - 2*2*menuPadding) / 2
+
+	m.focusBackground = helpers.GenerateSquareComonent(
+		MenuColorItemBackgroundFocus, MenuColorItemBackgroundFocus,
+		menuWidth-2*menuItemPadding, menuItemHeight,
+		engi.HUDGround+2,
+	)
+
+	m.defaultBackground = helpers.GenerateSquareComonent(
+		MenuColorItemBackground, MenuColorItemBackground,
+		menuWidth-2*menuItemPadding, menuItemHeight,
+		engi.HUDGround+2,
+	)
 }
 
 func (m *Menu) Update(entity *engi.Entity, dt float32) {
@@ -74,7 +96,28 @@ func (m *Menu) Update(entity *engi.Entity, dt float32) {
 	}
 
 	if m.menuActive {
+		var updated bool
+		var oldFocus = m.menuFocus
 
+		if engi.Keys.KEY_DOWN.JustPressed() {
+			m.menuFocus++
+			if m.menuFocus >= len(m.items) {
+				m.menuFocus = 0
+			}
+			updated = true
+		} else if engi.Keys.KEY_UP.JustPressed() {
+			m.menuFocus--
+			if m.menuFocus < 0 {
+				m.menuFocus = len(m.items) - 1
+			}
+			updated = true
+		}
+
+		if updated {
+			// note that these replace the old RenderComponents
+			m.items[oldFocus].menuBackground.AddComponent(m.defaultBackground)
+			m.items[m.menuFocus].menuBackground.AddComponent(m.focusBackground)
+		}
 	}
 
 	// Check if any button/item is being hovered
@@ -96,6 +139,8 @@ func (m *Menu) closeMenu() {
 func (m *Menu) openMenu() {
 	// Pause everything
 	engi.Mailbox.Dispatch(engi.PauseMessage{true})
+
+	m.menuFocus = 0
 
 	// Create the visual menu
 	// - background
@@ -136,39 +181,35 @@ func (m *Menu) openMenu() {
 	// - items - entities
 	offsetY := float32(menuPadding + menuItemPadding)
 	for itemID, item := range m.items {
-		var menuColorItemBackground = MenuColorItemBackground
+		item.menuBackground = engi.NewEntity([]string{"RenderSystem"})
 		if itemID == m.menuFocus {
-			menuColorItemBackground = MenuColorItemBackgroundFocus
+			item.menuBackground.AddComponent(m.focusBackground)
+		} else {
+			item.menuBackground.AddComponent(m.defaultBackground)
 		}
+		item.menuBackground.AddComponent(&engi.SpaceComponent{
+			engi.Point{menuItemOffsetX, offsetY}, menuWidth - 2*menuItemPadding, menuItemHeight})
+		item.menuBackground.AddComponent(&engi.UnpauseComponent{})
+		m.menuEntities = append(m.menuEntities, item.menuBackground)
+		m.World.AddEntity(item.menuBackground)
 
-		menuItemBackground := helpers.GenerateSquare(
-			menuColorItemBackground, menuColorItemBackground,
-			menuWidth-2*menuItemPadding, menuItemHeight,
-			menuItemOffsetX, offsetY,
-			engi.HUDGround+2,
-		)
-		menuItemBackground.AddComponent(&engi.UnpauseComponent{})
-		m.menuEntities = append(m.menuEntities, menuItemBackground)
-		m.World.AddEntity(menuItemBackground)
-
-		menuItemLabel := engi.NewEntity([]string{"RenderSystem"})
+		item.menuLabel = engi.NewEntity([]string{"RenderSystem"})
 		menuItemLabelRender := &engi.RenderComponent{
 			Display:      itemFont.Render(item.Text),
 			Scale:        engi.Point{labelFontScale, labelFontScale},
-			Label:        "",                 // TODO: unused?
-			Priority:     engi.HUDGround + 3, //
-			Transparency: 1,                  //
-			Color:        0xffffff,           // TODO: unused?
+			Priority:     engi.HUDGround + 3,
+			Transparency: 1,
+			Color:        0xffffff,
 		}
-		menuItemLabel.AddComponent(menuItemLabelRender)
-		menuItemLabel.AddComponent(&engi.SpaceComponent{
-			engi.Point{
+		item.menuLabel.AddComponent(menuItemLabelRender)
+		item.menuLabel.AddComponent(&engi.SpaceComponent{
+			Position: engi.Point{
 				menuItemOffsetX + (menuItemHeight-float32(itemFont.Size)*labelFontScale)/2,
 				offsetY + menuItemFontPadding + (menuItemHeight-float32(itemFont.Size)*labelFontScale)/2,
-			}, 20, 20}) // TODO: unused ??
-		menuItemLabel.AddComponent(&engi.UnpauseComponent{})
-		m.menuEntities = append(m.menuEntities, menuItemLabel)
-		m.World.AddEntity(menuItemLabel)
+			}})
+		item.menuLabel.AddComponent(&engi.UnpauseComponent{})
+		m.menuEntities = append(m.menuEntities, item.menuLabel)
+		m.World.AddEntity(item.menuLabel)
 
 		offsetY += menuItemHeight + menuItemPadding
 	}

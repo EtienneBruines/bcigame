@@ -8,6 +8,14 @@ import (
 
 // GenerateSquare creates a square, alternating two colors, with given size and priority level
 func GenerateSquare(c1, c2 color.Color, w, h float32, offX, offY float32, priority engi.PriorityLevel, requirements ...string) *engi.Entity {
+	field := engi.NewEntity(append([]string{"RenderSystem"}, requirements...))
+	field.AddComponent(GenerateSquareComonent(c1, c2, w, h, priority))
+	field.AddComponent(&engi.SpaceComponent{engi.Point{offX, offY}, w, h})
+	return field
+}
+
+// GenerateSquareComonent creates a square, alternating two colors, with given size and priority levl
+func GenerateSquareComonent(c1, c2 color.Color, w, h float32, priority engi.PriorityLevel) *engi.RenderComponent {
 	rect := image.Rect(0, 0, int(w), int(h))
 	img := image.NewNRGBA(rect)
 	for i := rect.Min.X; i < rect.Max.X; i++ {
@@ -28,11 +36,8 @@ func GenerateSquare(c1, c2 color.Color, w, h float32, offX, offY float32, priori
 		}
 	}
 	bgTexture := engi.NewImageObject(img)
-	field := engi.NewEntity(append([]string{"RenderSystem"}, requirements...))
 	fieldRender := engi.NewRenderComponent(engi.NewRegion(engi.NewTexture(bgTexture), 0, 0, int(w), int(h)), engi.Point{1, 1}, "")
 	fieldRender.Priority = priority
-	fieldSpace := &engi.SpaceComponent{engi.Point{offX, offY}, w, h}
-	field.AddComponent(fieldRender)
-	field.AddComponent(fieldSpace)
-	return field
+
+	return fieldRender
 }
