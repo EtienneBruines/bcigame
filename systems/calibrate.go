@@ -117,12 +117,20 @@ func (c *Calibrate) drawScene() {
 func (c *Calibrate) Pre() {
 	var err error
 
+	c.Header.NSamples, c.Header.NEvents, err = c.Connection.WaitData(0, 0, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Get actual data
 	min := c.Header.NSamples - uint32(c.Header.SamplingFrequency*timePeriod)
 	if min < 0 {
 		min = 0
 	}
-	samples, err := c.Connection.GetData(0, 0)
+
+	log.Println("Gathering", min, c.Header.NSamples)
+
+	samples, err := c.Connection.GetData(min, c.Header.NSamples-1)
 	if err != nil {
 		log.Fatal(err)
 	}
