@@ -16,11 +16,11 @@ var (
 	MenuColorItemForeground      = engi.Color{255, 255, 255, 255}
 	MenuColorItemBox             = color.RGBA{230, 230, 230, 255}
 
-	menuItemHeight      = float32(25)
+	menuItemHeight      = float32(50)
 	menuItemOffsetX     = float32(menuPadding + menuItemPadding)
-	menuItemFontPadding = float32(1)
-	menuItemPadding     = float32(2.5)
-	menuPadding         = float32(50)
+	menuItemFontPadding = float32(2)
+	menuItemPadding     = float32(5)
+	menuPadding         = float32(100)
 )
 
 type MenuItem struct {
@@ -56,12 +56,12 @@ func (m *Menu) New() {
 	m.AddEntity(e)
 	m.items = []*MenuItem{
 		{Text: "New Game", Callback: func() {
-			log.Println("New game")
 			m.closeMenu()
+			log.Println("New game")
 		}},
 		{Text: "Calibrate", Callback: func() {
-			log.Println("Calibrate")
 			m.closeMenu()
+			engi.Mailbox.Dispatch(CalibrateMessage{true})
 		}},
 		{Text: "Exit", Callback: func() {
 			os.Exit(0)
@@ -69,7 +69,7 @@ func (m *Menu) New() {
 	}
 
 	// TODO: handle resizing of window
-	menuWidth := (engi.Width() - 2*2*menuPadding) / 2
+	menuWidth := (engi.Width() - 2*menuPadding)
 
 	m.focusBackground = helpers.GenerateSquareComonent(
 		MenuColorItemBackgroundFocus, MenuColorItemBackgroundFocus,
@@ -144,8 +144,8 @@ func (m *Menu) openMenu() {
 
 	// Create the visual menu
 	// - background
-	backgroundWidth := engi.Width() / 2
-	backgroundHeight := engi.Height() / 2
+	backgroundWidth := engi.Width()
+	backgroundHeight := engi.Height()
 
 	menuBackground := helpers.GenerateSquare(
 		MenuColorBackground, MenuColorBackground,
@@ -158,8 +158,8 @@ func (m *Menu) openMenu() {
 	m.World.AddEntity(menuBackground)
 
 	// - box
-	menuWidth := (engi.Width() - 2*2*menuPadding) / 2
-	menuHeight := (engi.Height() - 2*2*menuPadding) / 2
+	menuWidth := (engi.Width() - 2*menuPadding)
+	menuHeight := (engi.Height() - 2*menuPadding)
 
 	menuEntity := helpers.GenerateSquare(
 		MenuColorBox, MenuColorBox,
@@ -176,7 +176,7 @@ func (m *Menu) openMenu() {
 	if err := itemFont.CreatePreloaded(); err != nil {
 		log.Fatalln("Could not load font:", err)
 	}
-	labelFontScale := float32(18 / itemFont.Size)
+	labelFontScale := float32(36 / itemFont.Size)
 
 	// - items - entities
 	offsetY := float32(menuPadding + menuItemPadding)
@@ -197,10 +197,10 @@ func (m *Menu) openMenu() {
 		menuItemLabelRender := &engi.RenderComponent{
 			Display:      itemFont.Render(item.Text),
 			Scale:        engi.Point{labelFontScale, labelFontScale},
-			Priority:     engi.HUDGround + 3,
 			Transparency: 1,
 			Color:        0xffffff,
 		}
+		menuItemLabelRender.SetPriority(engi.HUDGround + 3)
 		item.menuLabel.AddComponent(menuItemLabelRender)
 		item.menuLabel.AddComponent(&engi.SpaceComponent{
 			Position: engi.Point{

@@ -29,6 +29,7 @@ func (b *BCIGame) Setup(w *engi.World) {
 	w.AddSystem(&engi.PauseSystem{})
 	w.AddSystem(&systems.Menu{})
 	w.AddSystem(&systems.FPS{BaseTitle: gameTitle})
+	w.AddSystem(&systems.Calibrate{})
 
 	w.AddSystem(engi.NewKeyboardScroller(800, engi.W, engi.D, engi.S, engi.A))
 

@@ -37,7 +37,7 @@ func GenerateSquareComonent(c1, c2 color.Color, w, h float32, priority engi.Prio
 	}
 	bgTexture := engi.NewImageObject(img)
 	fieldRender := engi.NewRenderComponent(engi.NewRegion(engi.NewTexture(bgTexture), 0, 0, int(w), int(h)), engi.Point{1, 1}, "")
-	fieldRender.Priority = priority
+	fieldRender.SetPriority(priority)
 
 	return fieldRender
 }
