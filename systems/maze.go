@@ -147,7 +147,6 @@ func (m *Maze) cleanup() {
 }
 
 func (m *Maze) initialize() {
-	log.Println("Initialized", m.levels)
 	m.active = true
 
 	if len(m.levels) == 0 {
@@ -158,8 +157,6 @@ func (m *Maze) initialize() {
 
 	// Create world
 	engi.WorldBounds.Max = engi.Point{float32(m.currentLevel.Width) * tileWidth, float32(m.currentLevel.Height) * tileHeight}
-
-	log.Println(float32(m.currentLevel.Width)*tileWidth, float32(m.currentLevel.Height)*tileHeight)
 
 	engi.Mailbox.Dispatch(engi.CameraMessage{engi.XAxis, float32(m.currentLevel.Width) * tileWidth / 2, false})
 	engi.Mailbox.Dispatch(engi.CameraMessage{engi.YAxis, float32(m.currentLevel.Height) * tileHeight / 2, false})
@@ -182,9 +179,10 @@ func (m *Maze) initialize() {
 				c = color.NRGBA{0, 255, 255, 255}
 			}
 
-			m.World.AddEntity(helpers.GenerateSquare(c, c,
+			e := helpers.GenerateSquare(c, c,
 				tileWidth, tileHeight,
-				float32(columnNumber)*tileWidth, float32(rowNumber)*tileHeight, engi.ScenicGround))
+				float32(columnNumber)*tileWidth, float32(rowNumber)*tileHeight, engi.ScenicGround)
+			m.World.AddEntity(e)
 		}
 	}
 

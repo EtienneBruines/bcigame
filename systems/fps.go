@@ -26,6 +26,6 @@ func (f *FPS) New() {
 func (f *FPS) Update(entity *engi.Entity, dt float32) {
 	if fps := engi.Time.Fps(); f.lastFPS != int(fps) {
 		f.lastFPS = int(fps)
-		engi.SetTitle(fmt.Sprintf("%s - [FPS: %.0f]", f.BaseTitle, fps))
+		engi.SetTitle(fmt.Sprintf("%s - [FPS: %.0f] - %d", f.BaseTitle, fps, len(f.World.Entities())))
 	}
 }
