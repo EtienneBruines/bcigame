@@ -12,8 +12,8 @@ const (
 )
 
 var (
-	worldColor1 = color.RGBA{255, 0, 0, 255}
-	worldColor2 = color.RGBA{255, 255, 0, 255}
+	worldColor1 = color.NRGBA{255, 0, 0, 255}
+	worldColor2 = color.NRGBA{255, 255, 0, 255}
 )
 
 type BCIGame struct{}
@@ -25,11 +25,11 @@ func (b *BCIGame) Preload() {
 func (b *BCIGame) Setup(w *engi.World) {
 	engi.SetBg(0x444444)
 
-	w.AddSystem(&engi.RenderSystem{})
-	w.AddSystem(&engi.PauseSystem{})
 	w.AddSystem(&systems.Menu{})
-	w.AddSystem(&systems.FPS{BaseTitle: gameTitle})
-	w.AddSystem(&systems.Calibrate{})
+	//	w.AddSystem(&engi.PauseSystem{})
+	//	w.AddSystem(&systems.FPS{BaseTitle: gameTitle})
+	w.AddSystem(&engi.RenderSystem{})
+	//w.AddSystem(&systems.Calibrate{})
 
 	w.AddSystem(engi.NewKeyboardScroller(800, engi.W, engi.D, engi.S, engi.A))
 

@@ -36,6 +36,11 @@ func (c *Calibrate) New() {
 		log.Fatal(err)
 	}
 
+	err = c.Connection.FlushData()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Get latest header info
 	c.Header, err = c.Connection.GetHeader()
 	if err != nil {
@@ -63,48 +68,8 @@ func (c *Calibrate) destroyScene() {
 func (c *Calibrate) drawScene() {
 	engi.Mailbox.Dispatch(engi.PauseMessage{true})
 
-	// Get actual data
-	samples, err := c.Connection.GetData(0, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Visualizing the channels
-	channels := make([]channelXYer, c.Header.NChannels)
-	for _, sample := range samples {
-		for i := uint32(0); i < c.Header.NChannels; i++ {
-			channels[i].Values = append(channels[i].Values, sample[i])
-		}
-	}
-
-	for chIndex := range channels {
-		channels[chIndex].freq = c.Header.SamplingFrequency
-	}
-
 	for i := uint32(0); i < c.Header.NChannels; i++ {
-		// Render the image
-		plt, err := plot.New()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		plotutil.AddLinePoints(plt,
-			"CH"+strconv.Itoa(int(i)), plotter.XYer(channels[i]))
-		img := image.NewRGBA(image.Rect(0, 0, 3*dpi, 3*dpi))
-		canv := vgimg.NewWith(vgimg.UseImage(img))
-		plt.Draw(draw.New(canv))
-		bgTexture := engi.NewImageRGBA(img)
-
-		// Give it to engi
 		e := engi.NewEntity([]string{c.Type(), "RenderSystem"})
-		erender := &engi.RenderComponent{
-			Display:      engi.NewRegion(engi.NewTexture(bgTexture), 0, 0, 3*dpi, 3*dpi),
-			Scale:        engi.Point{1, 1},
-			Transparency: 1,
-			Color:        0xffffff,
-		}
-		erender.SetPriority(engi.HUDGround)
-		e.AddComponent(erender)
 		espace := &engi.SpaceComponent{engi.Point{0, float32(i * (3*dpi + 10))}, 0, 0}
 		e.AddComponent(espace)
 		e.AddComponent(&engi.UnpauseComponent{})
@@ -123,14 +88,16 @@ func (c *Calibrate) Pre() {
 	}
 
 	// Get actual data
-	min := c.Header.NSamples - uint32(c.Header.SamplingFrequency*timePeriod)
-	if min < 0 {
-		min = 0
+	min := uint32(0)
+	if c.Header.NSamples >= uint32(c.Header.SamplingFrequency*timePeriod) {
+		min = c.Header.NSamples - uint32(c.Header.SamplingFrequency*timePeriod)
+	}
+	max := uint32(0)
+	if c.Header.NSamples > 0 {
+		max = c.Header.NSamples - 1
 	}
 
-	log.Println("Gathering", min, c.Header.NSamples)
-
-	samples, err := c.Connection.GetData(min, c.Header.NSamples-1)
+	samples, err := c.Connection.GetData(min, max)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -9,12 +9,12 @@ import (
 )
 
 var (
-	MenuColorBackground          = color.RGBA{255, 255, 255, 125}
-	MenuColorBox                 = color.RGBA{180, 180, 180, 255}
-	MenuColorItemBackground      = color.RGBA{0, 0, 0, 125}
-	MenuColorItemBackgroundFocus = color.RGBA{64, 96, 0, 200}
+	MenuColorBackground          = color.NRGBA{255, 255, 255, 125}
+	MenuColorBox                 = color.NRGBA{180, 180, 180, 255}
+	MenuColorItemBackground      = color.NRGBA{0, 0, 0, 125}
+	MenuColorItemBackgroundFocus = color.NRGBA{64, 96, 0, 200}
 	MenuColorItemForeground      = engi.Color{255, 255, 255, 255}
-	MenuColorItemBox             = color.RGBA{230, 230, 230, 255}
+	MenuColorItemBox             = color.NRGBA{230, 230, 230, 255}
 
 	menuItemHeight      = float32(50)
 	menuItemOffsetX     = float32(menuPadding + menuItemPadding)
@@ -86,11 +86,12 @@ func (m *Menu) New() {
 
 func (m *Menu) Update(entity *engi.Entity, dt float32) {
 	// Check for ESCAPE
-	if engi.Keys.KEY_ESCAPE.JustReleased() {
+	if engi.Keys.Get(engi.Escape).JustPressed() {
 		if m.menuActive {
 			m.closeMenu()
 		} else {
 			m.openMenu()
+			return // so wait one frame before the menu gets to be used
 		}
 	}
 
@@ -180,6 +181,7 @@ func (m *Menu) openMenu() {
 
 	// - items - entities
 	offsetY := float32(menuPadding + menuItemPadding)
+
 	for itemID, item := range m.items {
 		item.menuBackground = engi.NewEntity([]string{"RenderSystem"})
 		if itemID == m.menuFocus {
