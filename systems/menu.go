@@ -57,7 +57,7 @@ func (m *Menu) New() {
 	m.items = []*MenuItem{
 		{Text: "New Game", Callback: func() {
 			m.closeMenu()
-			log.Println("New game")
+			engi.Mailbox.Dispatch(MazeMessage{})
 		}},
 		{Text: "Calibrate", Callback: func() {
 			m.closeMenu()
