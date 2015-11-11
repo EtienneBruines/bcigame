@@ -160,6 +160,9 @@ func (m *Maze) loadLevels() {
 func (m *Maze) cleanup() {
 	m.active = false
 
+	m.currentLevel = nil
+	m.playerEntity = nil
+
 	for _, entity := range m.Entities() {
 		m.World.RemoveEntity(entity)
 	}
@@ -168,11 +171,11 @@ func (m *Maze) cleanup() {
 func (m *Maze) initialize() {
 	m.active = true
 
-	if len(m.levels) == 0 {
+	if len(m.levels) < 3 {
 		return
 	}
 
-	m.currentLevel = &m.levels[0]
+	m.currentLevel = &m.levels[2]
 
 	// Create world
 	engi.WorldBounds.Max = engi.Point{float32(m.currentLevel.Width) * tileWidth, float32(m.currentLevel.Height) * tileHeight}
