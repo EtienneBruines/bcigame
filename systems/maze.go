@@ -8,6 +8,7 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var (
@@ -199,7 +200,7 @@ func (m *Maze) initialize() {
 	}
 
 	// Draw the player
-	m.playerEntity = engi.NewEntity([]string{"RenderSystem", m.Type()})
+	m.playerEntity = engi.NewEntity([]string{"RenderSystem", "MovementSystem", m.Type()})
 	m.playerEntity.AddComponent(tilePlayer)
 	m.playerEntity.AddComponent(&engi.SpaceComponent{engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight}, tileWidth, tileHeight})
 	m.World.AddEntity(m.playerEntity)
@@ -210,43 +211,43 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 		return
 	}
 
-	var changed bool
-
-	if engi.Keys.Get(engi.D).Down() {
-		if m.currentLevel.IsAvailable(m.currentLevel.PlayerX+1, m.currentLevel.PlayerY) {
-			m.currentLevel.PlayerX += 1
-			changed = true
-		}
-	} else if engi.Keys.Get(engi.A).Down() {
-		if m.currentLevel.IsAvailable(m.currentLevel.PlayerX-1, m.currentLevel.PlayerY) {
-			m.currentLevel.PlayerX -= 1
-			changed = true
-		}
+	var anim *MovementComponent
+	if entity.GetComponent(&anim) {
+		return // because it's still moving
 	}
 
-	if engi.Keys.Get(engi.S).Down() {
-		if m.currentLevel.IsAvailable(m.currentLevel.PlayerX, m.currentLevel.PlayerY+1) {
-			m.currentLevel.PlayerY += 1
-			changed = true
-		}
-	} else if engi.Keys.Get(engi.W).Down() {
-		if m.currentLevel.IsAvailable(m.currentLevel.PlayerX, m.currentLevel.PlayerY-1) {
-			m.currentLevel.PlayerY -= 1
-			changed = true
-		}
+	var changed bool
+	var oldX, oldY int
+
+	if engi.Keys.Get(engi.D).Down() && m.currentLevel.IsAvailable(m.currentLevel.PlayerX+1, m.currentLevel.PlayerY) {
+		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
+		m.currentLevel.PlayerX += 1
+		changed = true
+
+	} else if engi.Keys.Get(engi.A).Down() && m.currentLevel.IsAvailable(m.currentLevel.PlayerX-1, m.currentLevel.PlayerY) {
+		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
+		m.currentLevel.PlayerX -= 1
+		changed = true
+
+	} else if engi.Keys.Get(engi.S).Down() && m.currentLevel.IsAvailable(m.currentLevel.PlayerX, m.currentLevel.PlayerY+1) {
+		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
+		m.currentLevel.PlayerY += 1
+		changed = true
+	} else if engi.Keys.Get(engi.W).Down() && m.currentLevel.IsAvailable(m.currentLevel.PlayerX, m.currentLevel.PlayerY-1) {
+		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
+		m.currentLevel.PlayerY -= 1
+		changed = true
 	}
 
 	if !changed {
 		return
 	}
 
-	var space *engi.SpaceComponent
-	if !m.playerEntity.GetComponent(&space) {
-		return
-	}
-
-	space.Position.X = float32(m.currentLevel.PlayerX) * tileWidth
-	space.Position.Y = float32(m.currentLevel.PlayerY) * tileHeight
+	entity.AddComponent(&MovementComponent{
+		From: engi.Point{float32(oldX) * tileWidth, float32(oldY) * tileHeight},
+		To:   engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight},
+		In:   time.Millisecond * 150,
+	})
 }
 
 type MazeMessage struct{}

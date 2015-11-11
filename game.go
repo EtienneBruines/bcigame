@@ -28,8 +28,9 @@ func (b *BCIGame) Setup(w *engi.World) {
 
 	w.AddSystem(&systems.Menu{})
 	w.AddSystem(&systems.Maze{LevelDirectory: filepath.Join(assetsDir, levelsDir)})
-	w.AddSystem(&engi.PauseSystem{})
 	w.AddSystem(&systems.FPS{BaseTitle: gameTitle})
+	w.AddSystem(&systems.MovementSystem{})
+	w.AddSystem(&engi.PauseSystem{})
 	w.AddSystem(&engi.RenderSystem{})
 	//w.AddSystem(&systems.Calibrate{})
 
