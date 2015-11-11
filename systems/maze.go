@@ -11,9 +11,18 @@ import (
 )
 
 var (
-	mazeBackground         = color.NRGBA{255, 255, 255, 255}
-	tileWidth      float32 = 80
-	tileHeight     float32 = 80
+	tileWidth  float32 = 80
+	tileHeight float32 = 80
+
+	tilePlayerColor = color.NRGBA{0, 0, 100, 255}
+	tileWallColor   = color.NRGBA{0, 100, 0, 255}
+	tileBlankColor  = color.NRGBA{180, 180, 180, 255}
+	tileGoalColor   = color.NRGBA{0, 255, 255, 255}
+
+	tilePlayer *engi.RenderComponent
+	tileWall   *engi.RenderComponent
+	tileBlank  *engi.RenderComponent
+	tileGoal   *engi.RenderComponent
 )
 
 type Tile uint8
@@ -72,6 +81,11 @@ func (Maze) Type() string { return "MazeSystem" }
 
 func (m *Maze) New() {
 	m.System = engi.NewSystem()
+
+	tilePlayer = helpers.GenerateSquareComonent(tilePlayerColor, tilePlayerColor, tileWidth, tileHeight, engi.MiddleGround)
+	tileWall = helpers.GenerateSquareComonent(tileWallColor, tileWallColor, tileWidth, tileHeight, engi.ScenicGround+1)
+	tileBlank = helpers.GenerateSquareComonent(tileBlankColor, tileBlankColor, tileWidth, tileHeight, engi.ScenicGround+2)
+	tileGoal = helpers.GenerateSquareComonent(tileGoalColor, tileGoalColor, tileWidth, tileHeight, engi.ScenicGround+3)
 
 	m.loadLevels()
 
@@ -164,7 +178,8 @@ func (m *Maze) initialize() {
 	// Initialize the tiles
 	for rowNumber, tileRow := range m.currentLevel.Grid {
 		for columnNumber, tile := range tileRow {
-			var c color.NRGBA
+			e := engi.NewEntity([]string{"RenderSystem"})
+			e.AddComponent(&engi.SpaceComponent{engi.Point{float32(columnNumber) * tileWidth, float32(rowNumber) * tileHeight}, tileWidth, tileHeight})
 
 			switch tile {
 			case TilePlayer:
@@ -172,25 +187,21 @@ func (m *Maze) initialize() {
 				m.currentLevel.PlayerX, m.currentLevel.PlayerY = columnNumber, rowNumber
 				fallthrough
 			case TileBlank:
-				c = color.NRGBA{180, 180, 180, 255}
+				e.AddComponent(tileBlank)
 			case TileWall:
-				c = color.NRGBA{0, 100, 0, 255}
+				e.AddComponent(tileWall)
 			case TileGoal:
-				c = color.NRGBA{0, 255, 255, 255}
+				e.AddComponent(tileGoal)
 			}
 
-			e := helpers.GenerateSquare(c, c,
-				tileWidth, tileHeight,
-				float32(columnNumber)*tileWidth, float32(rowNumber)*tileHeight, engi.ScenicGround)
 			m.World.AddEntity(e)
 		}
 	}
 
-	c := color.NRGBA{0, 0, 100, 255}
 	// Draw the player
-	m.playerEntity = helpers.GenerateSquare(c, c,
-		tileWidth, tileHeight,
-		float32(m.currentLevel.PlayerX)*tileWidth, float32(m.currentLevel.PlayerY)*tileHeight, engi.MiddleGround, m.Type())
+	m.playerEntity = engi.NewEntity([]string{"RenderSystem", m.Type()})
+	m.playerEntity.AddComponent(tilePlayer)
+	m.playerEntity.AddComponent(&engi.SpaceComponent{engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight}, tileWidth, tileHeight})
 	m.World.AddEntity(m.playerEntity)
 }
 

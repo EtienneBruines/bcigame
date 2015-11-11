@@ -99,13 +99,13 @@ func (m *Menu) Update(entity *engi.Entity, dt float32) {
 		var updated bool
 		var oldFocus = m.menuFocus
 
-		if engi.Keys.KEY_DOWN.JustPressed() {
+		if engi.Keys.Get(engi.ArrowDown).JustPressed() {
 			m.menuFocus++
 			if m.menuFocus >= len(m.items) {
 				m.menuFocus = 0
 			}
 			updated = true
-		} else if engi.Keys.KEY_UP.JustPressed() {
+		} else if engi.Keys.Get(engi.ArrowUp).JustPressed() {
 			m.menuFocus--
 			if m.menuFocus < 0 {
 				m.menuFocus = len(m.items) - 1

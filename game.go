@@ -32,6 +32,8 @@ func (b *BCIGame) Setup(w *engi.World) {
 	w.AddSystem(&systems.FPS{BaseTitle: gameTitle})
 	w.AddSystem(&engi.RenderSystem{})
 	//w.AddSystem(&systems.Calibrate{})
+
+	engi.Mailbox.Dispatch(systems.MazeMessage{})
 }
 
 func main() {
