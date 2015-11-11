@@ -159,6 +159,10 @@ func (m *Maze) loadLevels() {
 
 func (m *Maze) cleanup() {
 	m.active = false
+
+	for _, entity := range m.Entities() {
+		m.World.RemoveEntity(entity)
+	}
 }
 
 func (m *Maze) initialize() {
