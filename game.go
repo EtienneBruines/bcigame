@@ -32,7 +32,7 @@ func (b *BCIGame) Setup(w *engi.World) {
 	w.AddSystem(&systems.MovementSystem{})
 	w.AddSystem(&engi.PauseSystem{})
 	w.AddSystem(&engi.RenderSystem{})
-	//w.AddSystem(&systems.Calibrate{})
+	w.AddSystem(&systems.Calibrate{})
 
 	engi.Mailbox.Dispatch(systems.MazeMessage{})
 }
@@ -56,5 +56,5 @@ func main() {
 	}
 
 	// TODO: don't hardcode this
-	engi.Open(gameTitle, 1920, 500, false, &BCIGame{})
+	engi.Open(gameTitle, 400, 800, false, &BCIGame{})
 }

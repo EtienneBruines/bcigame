@@ -21,6 +21,8 @@ type Calibrate struct {
 	Header     *gobci.Header
 
 	channels []channelXYer
+
+	frameIndex int
 }
 
 func (Calibrate) Type() string {
@@ -30,7 +32,23 @@ func (Calibrate) Type() string {
 func (c *Calibrate) New() {
 	c.System = engi.NewSystem()
 
+	/*
+		// TODO: don't hardcode directories
+		cmd1 := exec.Command("/home/etiennebruines/workspaces/bci/dataAcq/startNoSaveBuffer.sh")
+		err := cmd1.Start()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		cmd2 := exec.Command("/home/etiennebruines/workspaces/bci/dataAcq/startMatlabSignalProxy.sh")
+		err = cmd2.Start()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		time.Sleep(time.Second * 2)*/
 	var err error
+
 	c.Connection, err = gobci.Connect("")
 	if err != nil {
 		log.Fatal(err)
@@ -80,6 +98,12 @@ func (c *Calibrate) drawScene() {
 }
 
 func (c *Calibrate) Pre() {
+	c.frameIndex++
+	c.frameIndex = c.frameIndex % 6
+	if c.frameIndex != 0 {
+		return
+	}
+
 	var err error
 
 	c.Header.NSamples, c.Header.NEvents, err = c.Connection.WaitData(0, 0, 0)
@@ -104,7 +128,10 @@ func (c *Calibrate) Pre() {
 
 	// Visualizing the channels
 	c.channels = make([]channelXYer, c.Header.NChannels)
-	for _, sample := range samples {
+	for sampleIndex, sample := range samples {
+		if sampleIndex == 0 {
+			continue // TODO: find out why we have to do this
+		}
 		for i := uint32(0); i < c.Header.NChannels; i++ {
 			c.channels[i].Values = append(c.channels[i].Values, sample[i])
 		}

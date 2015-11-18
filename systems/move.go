@@ -46,13 +46,15 @@ func (a *MovementSystem) Update(entity *engi.Entity, dt float32) {
 
 	if move.timeLeft == 0 {
 		entity.RemoveComponent(move)
+		move.Callback()
 	}
 }
 
 type MovementComponent struct {
-	From engi.Point
-	To   engi.Point
-	In   time.Duration
+	From     engi.Point
+	To       engi.Point
+	In       time.Duration
+	Callback func()
 
 	started  bool
 	timeLeft float32

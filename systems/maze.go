@@ -19,11 +19,13 @@ var (
 	tileWallColor   = color.NRGBA{0, 100, 0, 255}
 	tileBlankColor  = color.NRGBA{180, 180, 180, 255}
 	tileGoalColor   = color.NRGBA{0, 255, 255, 255}
+	tileRouteColor  = color.NRGBA{255, 0, 0, 255}
 
 	tilePlayer *engi.RenderComponent
 	tileWall   *engi.RenderComponent
 	tileBlank  *engi.RenderComponent
 	tileGoal   *engi.RenderComponent
+	tileRoute  *engi.RenderComponent
 )
 
 type Tile uint8
@@ -33,6 +35,7 @@ const (
 	TileWall
 	TileBlank
 	TileGoal
+	TileRoute
 )
 
 func (t Tile) String() string {
@@ -45,15 +48,18 @@ func (t Tile) String() string {
 		return " "
 	case TileGoal:
 		return "G"
+	case TileRoute:
+		return "+"
 	default:
 		return ""
 	}
 }
 
 type Level struct {
-	Width  int
-	Height int
-	Grid   [][]Tile
+	Width        int
+	Height       int
+	Grid         [][]Tile
+	GridEntities [][]*engi.Entity
 
 	PlayerX, PlayerY int
 }
@@ -87,6 +93,7 @@ func (m *Maze) New() {
 	tileWall = helpers.GenerateSquareComonent(tileWallColor, tileWallColor, tileWidth, tileHeight, engi.ScenicGround+1)
 	tileBlank = helpers.GenerateSquareComonent(tileBlankColor, tileBlankColor, tileWidth, tileHeight, engi.ScenicGround+2)
 	tileGoal = helpers.GenerateSquareComonent(tileGoalColor, tileGoalColor, tileWidth, tileHeight, engi.ScenicGround+3)
+	tileRoute = helpers.GenerateSquareComonent(tileRouteColor, tileRouteColor, tileWidth, tileHeight, engi.ScenicGround+4)
 
 	m.loadLevels()
 
@@ -148,6 +155,8 @@ func (m *Maze) loadLevels() {
 					gameRow[index] = TileGoal
 				case ' ':
 					gameRow[index] = TileBlank
+				case '+':
+					gameRow[index] = TileRoute
 				}
 			}
 			lvl.Grid = append(lvl.Grid, gameRow)
@@ -171,7 +180,7 @@ func (m *Maze) cleanup() {
 func (m *Maze) initialize() {
 	m.active = true
 
-	if len(m.levels) < 3 {
+	if len(m.levels) < 4 {
 		return
 	}
 
@@ -184,7 +193,9 @@ func (m *Maze) initialize() {
 	engi.Mailbox.Dispatch(engi.CameraMessage{engi.YAxis, float32(m.currentLevel.Height) * tileHeight / 2, false})
 
 	// Initialize the tiles
+	m.currentLevel.GridEntities = make([][]*engi.Entity, len(m.currentLevel.Grid))
 	for rowNumber, tileRow := range m.currentLevel.Grid {
+		m.currentLevel.GridEntities[rowNumber] = make([]*engi.Entity, len(tileRow))
 		for columnNumber, tile := range tileRow {
 			e := engi.NewEntity([]string{"RenderSystem"})
 			e.AddComponent(&engi.SpaceComponent{engi.Point{float32(columnNumber) * tileWidth, float32(rowNumber) * tileHeight}, tileWidth, tileHeight})
@@ -200,8 +211,11 @@ func (m *Maze) initialize() {
 				e.AddComponent(tileWall)
 			case TileGoal:
 				e.AddComponent(tileGoal)
+			case TileRoute:
+				e.AddComponent(tileRoute)
 			}
 
+			m.currentLevel.GridEntities[rowNumber][columnNumber] = e
 			m.World.AddEntity(e)
 		}
 	}
@@ -254,6 +268,12 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 		From: engi.Point{float32(oldX) * tileWidth, float32(oldY) * tileHeight},
 		To:   engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight},
 		In:   time.Millisecond * 150,
+		Callback: func() {
+			if m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] == TileRoute {
+				m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] = TileBlank
+				m.currentLevel.GridEntities[m.currentLevel.PlayerY][m.currentLevel.PlayerX].AddComponent(tileBlank)
+			}
+		},
 	})
 }
 
