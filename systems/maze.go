@@ -145,7 +145,7 @@ func (m *Maze) loadLevels() {
 	}
 
 	for _, file := range files {
-		lvl := Level{Name: file}
+		lvl := Level{}
 
 		b, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -157,7 +157,11 @@ func (m *Maze) loadLevels() {
 		lines := strings.Split(content, "\n")
 		lvl.Height = len(lines)
 
-		for _, line := range lines {
+		for lineIndex, line := range lines {
+			if lineIndex == 0 {
+				lvl.Name = line
+				continue // with the actual maze
+			}
 			if len(line) > lvl.Width {
 				lvl.Width = len(line)
 			}
