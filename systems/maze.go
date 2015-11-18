@@ -72,12 +72,16 @@ func (l *Level) IsAvailable(x, y int) bool {
 	return l.Grid[y][x] != TileWall
 }
 
-type Controller uint8
+type Controller func(Level) Action
+
+type Action uint8
 
 const (
-	ControllerKeyboard Controller = iota
-	ControllerAutopilot
-	ControllerBCI
+	ActionUp Action = iota
+	ActionRight
+	ActionDown
+	ActionLeft
+	ActionStop
 )
 
 type Maze struct {
@@ -241,46 +245,24 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 		return
 	}
 
-	switch m.Controller {
-	case ControllerKeyboard:
-		m.updateKeyboard(entity, dt)
-	case ControllerAutopilot:
-		m.updateAutopilot(entity, dt)
+	var move *MovementComponent
+	if entity.GetComponent(&move) {
+		return // because we're still moving!
 	}
 
-}
+	oldX, oldY := m.currentLevel.PlayerX, m.currentLevel.PlayerY
 
-func (m *Maze) updateKeyboard(entity *engi.Entity, dt float32) {
-	var anim *MovementComponent
-	if entity.GetComponent(&anim) {
-		return // because it's still moving
-	}
-
-	var changed bool
-	var oldX, oldY int
-
-	if engi.Keys.Get(engi.D).Down() && m.currentLevel.IsAvailable(m.currentLevel.PlayerX+1, m.currentLevel.PlayerY) {
-		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
-		m.currentLevel.PlayerX += 1
-		changed = true
-
-	} else if engi.Keys.Get(engi.A).Down() && m.currentLevel.IsAvailable(m.currentLevel.PlayerX-1, m.currentLevel.PlayerY) {
-		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
-		m.currentLevel.PlayerX -= 1
-		changed = true
-
-	} else if engi.Keys.Get(engi.S).Down() && m.currentLevel.IsAvailable(m.currentLevel.PlayerX, m.currentLevel.PlayerY+1) {
-		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
-		m.currentLevel.PlayerY += 1
-		changed = true
-	} else if engi.Keys.Get(engi.W).Down() && m.currentLevel.IsAvailable(m.currentLevel.PlayerX, m.currentLevel.PlayerY-1) {
-		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
-		m.currentLevel.PlayerY -= 1
-		changed = true
-	}
-
-	if !changed {
-		return
+	switch m.Controller(*m.currentLevel) {
+	case ActionUp:
+		m.currentLevel.PlayerY--
+	case ActionDown:
+		m.currentLevel.PlayerY++
+	case ActionLeft:
+		m.currentLevel.PlayerX--
+	case ActionRight:
+		m.currentLevel.PlayerX++
+	case ActionStop:
+		return // so don't animate
 	}
 
 	entity.AddComponent(&MovementComponent{
@@ -296,54 +278,36 @@ func (m *Maze) updateKeyboard(entity *engi.Entity, dt float32) {
 	})
 }
 
-func (m *Maze) updateAutopilot(entity *engi.Entity, dt float32) {
-	var anim *MovementComponent
-	if entity.GetComponent(&anim) {
-		return // because it's still moving
+func ControllerKeyboard(l Level) Action {
+	if engi.Keys.Get(engi.D).Down() && l.IsAvailable(l.PlayerX+1, l.PlayerY) {
+		return ActionRight
+	} else if engi.Keys.Get(engi.A).Down() && l.IsAvailable(l.PlayerX-1, l.PlayerY) {
+		return ActionLeft
+	} else if engi.Keys.Get(engi.S).Down() && l.IsAvailable(l.PlayerX, l.PlayerY+1) {
+		return ActionDown
+	} else if engi.Keys.Get(engi.W).Down() && l.IsAvailable(l.PlayerX, l.PlayerY-1) {
+		return ActionUp
 	}
 
-	var changed bool
+	return ActionStop
+}
 
-	// Check surrounding tiles
-	oldX, oldY := m.currentLevel.PlayerX, m.currentLevel.PlayerY
-
+func ControllerAutoPilot(l Level) Action {
 	priority := []Tile{TileGoal, TileRoute}
 
 	for _, p := range priority {
-		if m.currentLevel.Grid[oldY][oldX-1] == p {
-			m.currentLevel.PlayerX--
-			changed = true
-			break
-		} else if m.currentLevel.Grid[oldY][oldX+1] == p {
-			m.currentLevel.PlayerX++
-			changed = true
-			break
-		} else if m.currentLevel.Grid[oldY-1][oldX] == p {
-			m.currentLevel.PlayerY--
-			changed = true
-			break
-		} else if m.currentLevel.Grid[oldY+1][oldX] == p {
-			m.currentLevel.PlayerY++
-			changed = true
-			break
+		if l.Grid[l.PlayerY][l.PlayerX-1] == p {
+			return ActionLeft
+		} else if l.Grid[l.PlayerY][l.PlayerX+1] == p {
+			return ActionRight
+		} else if l.Grid[l.PlayerY-1][l.PlayerX] == p {
+			return ActionUp
+		} else if l.Grid[l.PlayerY+1][l.PlayerX] == p {
+			return ActionDown
 		}
 	}
 
-	if !changed {
-		return
-	}
-
-	entity.AddComponent(&MovementComponent{
-		From: engi.Point{float32(oldX) * tileWidth, float32(oldY) * tileHeight},
-		To:   engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight},
-		In:   time.Millisecond * 150,
-		Callback: func() {
-			if m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] == TileRoute {
-				m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] = TileBlank
-				m.currentLevel.GridEntities[m.currentLevel.PlayerY][m.currentLevel.PlayerX].AddComponent(tileBlank)
-			}
-		},
-	})
+	return ActionStop
 }
 
 type MazeMessage struct{}

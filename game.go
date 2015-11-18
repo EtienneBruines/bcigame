@@ -27,7 +27,7 @@ func (b *BCIGame) Setup(w *engi.World) {
 	engi.SetBg(0x444444)
 
 	w.AddSystem(&systems.Menu{})
-	w.AddSystem(&systems.Maze{LevelDirectory: filepath.Join(assetsDir, levelsDir), Controller: systems.ControllerAutopilot})
+	w.AddSystem(&systems.Maze{LevelDirectory: filepath.Join(assetsDir, levelsDir), Controller: systems.ControllerAutoPilot})
 	w.AddSystem(&systems.FPS{BaseTitle: gameTitle})
 	w.AddSystem(&systems.MovementSystem{})
 	w.AddSystem(&engi.PauseSystem{})
