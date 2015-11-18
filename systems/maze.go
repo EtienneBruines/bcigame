@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"path/filepath"
 	"strings"
 	"time"
@@ -56,6 +57,7 @@ func (t Tile) String() string {
 }
 
 type Level struct {
+	Name         string
 	Width        int
 	Height       int
 	Grid         [][]Tile
@@ -99,7 +101,10 @@ type Maze struct {
 
 func (Maze) Type() string { return "MazeSystem" }
 
+var ActiveMazeSystem *Maze
+
 func (m *Maze) New() {
+	ActiveMazeSystem = m
 	m.System = engi.NewSystem()
 
 	tilePlayer = helpers.GenerateSquareComonent(tilePlayerColor, tilePlayerColor, tileWidth, tileHeight, engi.MiddleGround)
@@ -111,14 +116,14 @@ func (m *Maze) New() {
 	m.loadLevels()
 
 	engi.Mailbox.Listen("MazeMessage", func(msg engi.Message) {
-		_, ok := msg.(MazeMessage)
+		mazeMsg, ok := msg.(MazeMessage)
 		if !ok {
 			return
 		}
 		if m.active {
 			m.cleanup()
 		}
-		m.initialize()
+		m.initialize(mazeMsg.Level)
 	})
 }
 
@@ -140,7 +145,7 @@ func (m *Maze) loadLevels() {
 	}
 
 	for _, file := range files {
-		lvl := Level{}
+		lvl := Level{Name: file}
 
 		b, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -182,6 +187,13 @@ func (m *Maze) loadLevels() {
 func (m *Maze) cleanup() {
 	m.active = false
 
+	for _, row := range m.currentLevel.GridEntities {
+		for _, cell := range row {
+			m.World.RemoveEntity(cell)
+		}
+	}
+	m.World.RemoveEntity(m.playerEntity)
+
 	m.currentLevel = nil
 	m.playerEntity = nil
 
@@ -190,14 +202,22 @@ func (m *Maze) cleanup() {
 	}
 }
 
-func (m *Maze) initialize() {
+func (m *Maze) initialize(level string) {
 	m.active = true
 
-	if len(m.levels) < 4 {
-		return
+	for lvlId := range m.levels {
+		if m.levels[lvlId].Name == level {
+			m.currentLevel = &m.levels[lvlId]
+			break
+		}
 	}
-
-	m.currentLevel = &m.levels[2]
+	if m.currentLevel == nil {
+		if len(m.levels) > 0 {
+			m.currentLevel = &m.levels[rand.Intn(len(m.levels))]
+		} else {
+			return
+		}
+	}
 
 	// Create world
 	engi.WorldBounds.Max = engi.Point{float32(m.currentLevel.Width) * tileWidth, float32(m.currentLevel.Height) * tileHeight}
@@ -314,6 +334,8 @@ func ControllerAutoPilot(l Level) Action {
 	return ActionStop
 }
 
-type MazeMessage struct{}
+type MazeMessage struct {
+	Level string
+}
 
 func (MazeMessage) Type() string { return "MazeMessage" }

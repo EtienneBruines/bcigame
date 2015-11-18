@@ -26,6 +26,7 @@ var (
 type MenuItem struct {
 	Text     string
 	Callback func()
+	SubItems []*MenuItem
 
 	menuBackground *engi.Entity
 	menuLabel      *engi.Entity
@@ -42,6 +43,7 @@ type Menu struct {
 	menuItemEntities []*engi.Entity
 	menuFocus        int
 	items            []*MenuItem
+	itemSelected     *MenuItem
 }
 
 func (*Menu) Type() string {
@@ -51,14 +53,33 @@ func (*Menu) Type() string {
 func (m *Menu) New() {
 	m.System = engi.NewSystem()
 
+	specificLevel := &MenuItem{Text: "Play specific level ..."}
+
+	callbackGenerator := func(l *Level) func() {
+		msg := MazeMessage{l.Name}
+		return func() {
+			m.closeMenu()
+			engi.Mailbox.Dispatch(msg)
+		}
+	}
+
+	specificLevel.Callback = func() {
+		specificLevel.SubItems = make([]*MenuItem, 0)
+		for _, l := range ActiveMazeSystem.levels {
+			specificLevel.SubItems = append(specificLevel.SubItems, &MenuItem{Text: l.Name,
+				Callback: callbackGenerator(&l)})
+		}
+	}
+
 	e := engi.NewEntity([]string{m.Type()})
 	e.AddComponent(&engi.UnpauseComponent{})
 	m.AddEntity(e)
 	m.items = []*MenuItem{
-		{Text: "New Game", Callback: func() {
+		{Text: "Random Level", Callback: func() {
 			m.closeMenu()
 			engi.Mailbox.Dispatch(MazeMessage{})
 		}},
+		specificLevel,
 		{Text: "Calibrate", Callback: func() {
 			m.closeMenu()
 			engi.Mailbox.Dispatch(CalibrateMessage{true})
@@ -88,6 +109,7 @@ func (m *Menu) Update(entity *engi.Entity, dt float32) {
 	// Check for ESCAPE
 	if engi.Keys.Get(engi.Escape).JustPressed() {
 		if m.menuActive {
+			// TODO: or go up one level
 			m.closeMenu()
 		} else {
 			m.openMenu()
@@ -98,29 +120,40 @@ func (m *Menu) Update(entity *engi.Entity, dt float32) {
 	if m.menuActive {
 		var updated bool
 		var oldFocus = m.menuFocus
+		var itemList []*MenuItem
+		if m.itemSelected == nil {
+			itemList = m.items
+		} else {
+			itemList = m.itemSelected.SubItems
+		}
 
 		if engi.Keys.Get(engi.ArrowDown).JustPressed() {
 			m.menuFocus++
-			if m.menuFocus >= len(m.items) {
+			if m.menuFocus >= len(itemList) {
 				m.menuFocus = 0
 			}
 			updated = true
 		} else if engi.Keys.Get(engi.ArrowUp).JustPressed() {
 			m.menuFocus--
 			if m.menuFocus < 0 {
-				m.menuFocus = len(m.items) - 1
+				m.menuFocus = len(itemList) - 1
 			}
 			updated = true
 		}
 
 		if updated {
 			// note that these replace the old RenderComponents
-			m.items[oldFocus].menuBackground.AddComponent(m.defaultBackground)
-			m.items[m.menuFocus].menuBackground.AddComponent(m.focusBackground)
+			itemList[oldFocus].menuBackground.AddComponent(m.defaultBackground)
+			itemList[m.menuFocus].menuBackground.AddComponent(m.focusBackground)
 		}
 
 		if engi.Keys.Get(engi.Space).JustPressed() || engi.Keys.Get(engi.Enter).JustPressed() {
-			m.items[m.menuFocus].Callback()
+			itemList[m.menuFocus].Callback()
+			if len(itemList[m.menuFocus].SubItems) > 0 {
+				m.closeMenu()
+				m.itemSelected = m.items[m.menuFocus]
+				m.openMenu()
+			}
 		}
 	}
 }
@@ -184,7 +217,14 @@ func (m *Menu) openMenu() {
 	// - items - entities
 	offsetY := float32(menuPadding + menuItemPadding)
 
-	for itemID, item := range m.items {
+	var itemList []*MenuItem
+	if m.itemSelected == nil {
+		itemList = m.items
+	} else {
+		itemList = m.itemSelected.SubItems
+	}
+
+	for itemID, item := range itemList {
 		item.menuBackground = engi.NewEntity([]string{"RenderSystem"})
 		if itemID == m.menuFocus {
 			item.menuBackground.AddComponent(m.focusBackground)
