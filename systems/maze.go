@@ -262,7 +262,11 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 	case ActionRight:
 		m.currentLevel.PlayerX++
 	case ActionStop:
-		return // so don't animate
+		return // so don't move
+	}
+
+	if !m.currentLevel.IsAvailable(m.currentLevel.PlayerX, m.currentLevel.PlayerY) {
+		return // because it's an invalid move
 	}
 
 	entity.AddComponent(&MovementComponent{
