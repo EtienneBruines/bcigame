@@ -153,8 +153,10 @@ func (m *Menu) openMenu() {
 		backgroundWidth, backgroundHeight,
 		0, 0,
 		engi.HUDGround,
+		"AudioSystem",
 	)
 	menuBackground.AddComponent(&engi.UnpauseComponent{})
+	menuBackground.AddComponent(&engi.AudioComponent{File: "click_x.wav", Repeat: false, Background: true})
 	m.menuEntities = append(m.menuEntities, menuBackground)
 	m.World.AddEntity(menuBackground)
 
