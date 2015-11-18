@@ -72,9 +72,18 @@ func (l *Level) IsAvailable(x, y int) bool {
 	return l.Grid[y][x] != TileWall
 }
 
+type Controller uint8
+
+const (
+	ControllerKeyboard Controller = iota
+	ControllerAutopilot
+	ControllerBCI
+)
+
 type Maze struct {
 	*engi.System
 	LevelDirectory string
+	Controller     Controller
 
 	active bool
 
@@ -232,6 +241,16 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 		return
 	}
 
+	switch m.Controller {
+	case ControllerKeyboard:
+		m.updateKeyboard(entity, dt)
+	case ControllerAutopilot:
+		m.updateAutopilot(entity, dt)
+	}
+
+}
+
+func (m *Maze) updateKeyboard(entity *engi.Entity, dt float32) {
 	var anim *MovementComponent
 	if entity.GetComponent(&anim) {
 		return // because it's still moving
@@ -258,6 +277,56 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 		oldX, oldY = m.currentLevel.PlayerX, m.currentLevel.PlayerY
 		m.currentLevel.PlayerY -= 1
 		changed = true
+	}
+
+	if !changed {
+		return
+	}
+
+	entity.AddComponent(&MovementComponent{
+		From: engi.Point{float32(oldX) * tileWidth, float32(oldY) * tileHeight},
+		To:   engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight},
+		In:   time.Millisecond * 150,
+		Callback: func() {
+			if m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] == TileRoute {
+				m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] = TileBlank
+				m.currentLevel.GridEntities[m.currentLevel.PlayerY][m.currentLevel.PlayerX].AddComponent(tileBlank)
+			}
+		},
+	})
+}
+
+func (m *Maze) updateAutopilot(entity *engi.Entity, dt float32) {
+	var anim *MovementComponent
+	if entity.GetComponent(&anim) {
+		return // because it's still moving
+	}
+
+	var changed bool
+
+	// Check surrounding tiles
+	oldX, oldY := m.currentLevel.PlayerX, m.currentLevel.PlayerY
+
+	priority := []Tile{TileGoal, TileRoute}
+
+	for _, p := range priority {
+		if m.currentLevel.Grid[oldY][oldX-1] == p {
+			m.currentLevel.PlayerX--
+			changed = true
+			break
+		} else if m.currentLevel.Grid[oldY][oldX+1] == p {
+			m.currentLevel.PlayerX++
+			changed = true
+			break
+		} else if m.currentLevel.Grid[oldY-1][oldX] == p {
+			m.currentLevel.PlayerY--
+			changed = true
+			break
+		} else if m.currentLevel.Grid[oldY+1][oldX] == p {
+			m.currentLevel.PlayerY++
+			changed = true
+			break
+		}
 	}
 
 	if !changed {
