@@ -27,6 +27,7 @@ type MenuItem struct {
 	Text     string
 	Callback func()
 	SubItems []*MenuItem
+	Parent   *MenuItem
 
 	menuBackground *engi.Entity
 	menuLabel      *engi.Entity
@@ -109,8 +110,14 @@ func (m *Menu) Update(entity *engi.Entity, dt float32) {
 	// Check for ESCAPE
 	if engi.Keys.Get(engi.Escape).JustPressed() {
 		if m.menuActive {
-			// TODO: or go up one level
-			m.closeMenu()
+			if m.itemSelected == nil {
+				m.closeMenu()
+			} else {
+				selected := m.itemSelected
+				m.closeMenu()
+				m.itemSelected = selected.Parent
+				m.openMenu()
+			}
 		} else {
 			m.openMenu()
 			return // so wait one frame before the menu gets to be used
@@ -167,6 +174,7 @@ func (m *Menu) closeMenu() {
 		m.World.RemoveEntity(e)
 	}
 
+	m.itemSelected = nil
 	m.menuActive = false
 }
 
