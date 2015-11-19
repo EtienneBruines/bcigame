@@ -3,7 +3,6 @@ package systems
 import (
 	"container/heap"
 	"github.com/paked/engi"
-	"log"
 )
 
 type Controller interface {
@@ -116,6 +115,7 @@ func (ai *AIController) Action(l Level) Action {
 	const maxIterations = 1000
 
 	if len(ai.Route) == 0 {
+
 		// Find goal state
 		var goalX, goalY int
 		for rowIndex, row := range l.Grid {
@@ -126,69 +126,7 @@ func (ai *AIController) Action(l Level) Action {
 			}
 		}
 
-		if l.PlayerX == goalX && l.PlayerY == goalY {
-			return ActionStop // we already achieved goal
-		}
-
-		// Compute the route
-		pq := &actionPriorityQueue{}
-		heap.Init(pq)
-		pq.Push(&priorityQueItem{value: State{nil, l.PlayerX, l.PlayerY}})
-
-		// Keep track of what we have visited
-		visited := make([][]bool, l.Height)
-		for visIndex := range visited {
-			visited[visIndex] = make([]bool, l.Width)
-		}
-
-		for i := 0; pq.Len() > 0 && i < maxIterations; i++ {
-			pqitem := pq.Pop().(*priorityQueItem)
-			state := pqitem.value
-			visited[state.Y][state.X] = true
-
-			for _, action := range possibleActions(&l, state.X, state.Y) {
-				var x2, y2 int
-				switch action {
-				case ActionUp:
-					x2, y2 = state.X, state.Y-1
-				case ActionDown:
-					x2, y2 = state.X, state.Y+1
-				case ActionLeft:
-					x2, y2 = state.X-1, state.Y
-				case ActionRight:
-					x2, y2 = state.X+1, state.Y
-				default:
-					x2, y2 = state.X, state.Y
-				}
-
-				if visited[y2][x2] {
-					continue // with other actions
-				}
-
-				// New route list
-				newActionList := make([]Action, len(state.Route)+1)
-				for index, routeItem := range state.Route {
-					newActionList[index] = routeItem
-				}
-				newActionList[len(state.Route)] = action
-
-				if x2 == goalX && y2 == goalY {
-					ai.Route = newActionList
-					break
-				}
-
-				// to add something
-				pq.Push(&priorityQueItem{
-					value:    State{newActionList, x2, y2},
-					priority: -manhattanDistance(x2, y2, goalX, goalY) - len(newActionList),
-				})
-			}
-		}
-	}
-
-	if len(ai.Route) == 0 {
-		log.Println("No solution found after", maxIterations, "iteractions")
-		return ActionStop
+		ai.Route = computeRoute(&l, l.PlayerX, l.PlayerY, goalX, goalY)
 	}
 
 	nextAction := ai.Route[0]
@@ -232,4 +170,69 @@ func manhattanDistance(x1, y1, x2, y2 int) int {
 		diffY *= -1
 	}
 	return diffX + diffY
+}
+
+func computeRoute(l *Level, startX, startY, goalX, goalY int) []Action {
+	const maxIterations = 1000
+
+	if startX == goalX && startY == goalY {
+		return []Action{ActionStop} // we already achieved goal
+	}
+
+	// Compute the route
+	pq := &actionPriorityQueue{}
+	heap.Init(pq)
+	heap.Push(pq, &priorityQueItem{value: State{nil, startX, startY}})
+
+	// Keep track of what we have visited
+	visited := make([][]bool, l.Height)
+	for visIndex := range visited {
+		visited[visIndex] = make([]bool, l.Width)
+	}
+
+	for i := 0; pq.Len() > 0 && i < maxIterations; i++ {
+		pqitem := heap.Pop(pq).(*priorityQueItem)
+		state := pqitem.value
+
+		for _, action := range possibleActions(l, state.X, state.Y) {
+			var x2, y2 int
+			switch action {
+			case ActionUp:
+				x2, y2 = state.X, state.Y-1
+			case ActionDown:
+				x2, y2 = state.X, state.Y+1
+			case ActionLeft:
+				x2, y2 = state.X-1, state.Y
+			case ActionRight:
+				x2, y2 = state.X+1, state.Y
+			default:
+				x2, y2 = state.X, state.Y
+			}
+
+			if visited[y2][x2] {
+				continue // with other actions
+			}
+
+			// New route list
+			newActionList := make([]Action, len(state.Route)+1)
+			for index, routeItem := range state.Route {
+				newActionList[index] = routeItem
+			}
+			newActionList[len(state.Route)] = action
+
+			if x2 == goalX && y2 == goalY {
+				return newActionList
+			}
+
+			// to add something
+			heap.Push(pq, &priorityQueItem{
+				value:    State{newActionList, x2, y2},
+				priority: -manhattanDistance(x2, y2, goalX, goalY),
+			})
+
+			visited[y2][x2] = true // because it's queued
+		}
+	}
+
+	return []Action{ActionStop}
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/paked/engi"
 	"image/color"
 	"math/rand"
+	"strings"
 	"time"
 )
 
@@ -12,8 +13,10 @@ const (
 	tileWidth  float32 = 80
 	tileHeight float32 = 80
 
-	randomMinWidth  = 5
-	randomMaxWidth  = 25
+	moveSpeed = 15.0
+
+	randomMinWidth  = 15
+	randomMaxWidth  = 35
 	randomMinHeight = 5
 	randomMaxHeight = 25
 )
@@ -174,6 +177,14 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 
 	oldX, oldY := m.currentLevel.PlayerX, m.currentLevel.PlayerY
 
+	if m.currentLevel.Grid[oldY][oldX] == TileGoal {
+		// Goal achieved!
+		if strings.HasPrefix(m.currentLevel.Name, "Random ") {
+			engi.Mailbox.Dispatch(MazeMessage{})
+			return
+		}
+	}
+
 	switch m.Controller.Action(m.currentLevel) {
 	case ActionUp:
 		m.currentLevel.PlayerY--
@@ -194,7 +205,7 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 	entity.AddComponent(&MovementComponent{
 		From: engi.Point{float32(oldX) * tileWidth, float32(oldY) * tileHeight},
 		To:   engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight},
-		In:   time.Millisecond * 150,
+		In:   time.Second / moveSpeed,
 		Callback: func() {
 			if m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] == TileRoute {
 				m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] = TileBlank

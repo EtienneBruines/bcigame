@@ -152,6 +152,13 @@ func NewRandomLevel(minWidth, maxWidth int, minHeight, maxHeight int) Level {
 	lvl.Width = minWidth + rand.Intn(maxWidth-minWidth)
 	lvl.Height = minHeight + rand.Intn(maxHeight-minHeight)
 
+	if lvl.Width%2 == 0 {
+		lvl.Width++
+	}
+	if lvl.Height%2 == 0 {
+		lvl.Height++
+	}
+
 	// Initialize grid
 	lvl.Grid = make([][]Tile, lvl.Height)
 	for rowIndex := range lvl.Grid {
@@ -172,9 +179,101 @@ func NewRandomLevel(minWidth, maxWidth int, minHeight, maxHeight int) Level {
 		}
 	}
 
+	// Create small spaces everywhere
+	for row := 2; row < lvl.Height; row += 2 {
+		for cell := 0; cell < lvl.Width; cell++ {
+			lvl.Grid[row][cell] = TileWall
+		}
+	}
+	for row := 0; row < lvl.Height; row++ {
+		for cell := 0; cell < lvl.Width; cell += 2 {
+			lvl.Grid[row][cell] = TileWall
+		}
+	}
+
+	// Connect those spaces with each other
+	type point struct{ x, y int }
+	var unconnected []point
+	for row := 1; row < lvl.Height; row += 2 {
+		for cell := 1; cell < lvl.Width; cell += 2 {
+			unconnected = append(unconnected, point{cell, row})
+		}
+	}
+
 	// Randomly locate goal node and player
 	goalX, goalY := rand.Intn(lvl.Width-2)+1, rand.Intn(lvl.Height-2)+1
 	lvl.Grid[goalY][goalX] = TileGoal
+
+	lvl.PlayerX, lvl.PlayerY = lvl.Width-2, lvl.Height-2
+
+	counter := 0
+	for len(unconnected) > 0 && counter < 20 {
+		counter++
+		var removeIndex []int
+		// Make sure the player can reach every location in unconnected
+		for index, un := range unconnected {
+			route := computeRoute(&lvl, lvl.PlayerX, lvl.PlayerY, un.x, un.y)
+			if len(route) != 1 || route[0] != ActionStop {
+				removeIndex = append(removeIndex, index)
+				continue // with other nodes
+			}
+
+			// Break one of four walls
+
+			var pos []Action
+			if un.x > 1 && lvl.Grid[un.y][un.x-1] == TileWall {
+				pos = append(pos, ActionLeft)
+			}
+			if un.x < lvl.Width-2 && lvl.Grid[un.y][un.x+1] == TileWall {
+				pos = append(pos, ActionRight)
+			}
+			if un.y > 1 && lvl.Grid[un.y-1][un.x] == TileWall {
+				pos = append(pos, ActionUp)
+			}
+			if un.y < lvl.Height-2 && lvl.Grid[un.y+1][un.x] == TileWall {
+				pos = append(pos, ActionDown)
+			}
+			if len(pos) == 0 {
+				continue // with other nodes
+			}
+
+			randy := rand.Intn(len(pos))
+			var newX, newY int
+			var newX2, newY2 int
+			switch pos[randy] {
+			case ActionLeft:
+				newY, newX = un.y, un.x-1
+				newY2, newX2 = un.y, un.x-2
+			case ActionRight:
+				newY, newX = un.y, un.x+1
+				newY2, newX2 = un.y, un.x+2
+			case ActionUp:
+				newY, newX = un.y-1, un.x
+				newY2, newX2 = un.y-2, un.x
+			case ActionDown:
+				newY, newX = un.y+1, un.x
+				newY2, newX2 = un.y+2, un.x
+			}
+
+			// Check to see if we can already reach that point
+			route = computeRoute(&lvl, un.x, un.y, newX2, newY2)
+			if len(route) != 1 || route[0] != ActionStop {
+				removeIndex = append(removeIndex, index)
+				continue // with other nodes
+			}
+
+			lvl.Grid[newY][newX] = TileBlank
+		}
+
+		// Remove all those who are connected
+		for removeI, unconnectedIndex := range removeIndex {
+			if unconnectedIndex < len(unconnected)-1 {
+				unconnected = append(unconnected[0:unconnectedIndex-removeI], unconnected[unconnectedIndex-removeI+1:]...)
+			} else {
+				unconnected = unconnected[0 : unconnectedIndex-removeI]
+			}
+		}
+	}
 
 	return lvl
 }
