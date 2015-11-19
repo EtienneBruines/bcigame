@@ -1,9 +1,11 @@
 package systems
 
 import (
+	"fmt"
 	"github.com/paked/engi"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"path/filepath"
 	"strings"
 )
@@ -143,4 +145,36 @@ func LoadLevels(dir string) (levels []Level) {
 		levels = append(levels, lvl)
 	}
 	return
+}
+
+func NewRandomLevel(minWidth, maxWidth int, minHeight, maxHeight int) Level {
+	lvl := NewLevel()
+	lvl.Width = minWidth + rand.Intn(maxWidth-minWidth)
+	lvl.Height = minHeight + rand.Intn(maxHeight-minHeight)
+
+	// Initialize grid
+	lvl.Grid = make([][]Tile, lvl.Height)
+	for rowIndex := range lvl.Grid {
+		lvl.Grid[rowIndex] = make([]Tile, lvl.Width)
+	}
+
+	lvl.Name = fmt.Sprintf("Random %d by %d", lvl.Width, lvl.Height)
+
+	// Create walls at the border
+	for row := 0; row < lvl.Height; row += lvl.Height - 1 {
+		for cell := 0; cell < lvl.Width; cell++ {
+			lvl.Grid[row][cell] = TileWall
+		}
+	}
+	for row := 0; row < lvl.Height; row++ {
+		for cell := 0; cell < lvl.Width; cell += lvl.Width - 1 {
+			lvl.Grid[row][cell] = TileWall
+		}
+	}
+
+	// Randomly locate goal node and player
+	goalX, goalY := rand.Intn(lvl.Width-2)+1, rand.Intn(lvl.Height-2)+1
+	lvl.Grid[goalY][goalX] = TileGoal
+
+	return lvl
 }

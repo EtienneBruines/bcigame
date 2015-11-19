@@ -180,7 +180,7 @@ func (ai *AIController) Action(l Level) Action {
 				// to add something
 				pq.Push(&priorityQueItem{
 					value:    State{newActionList, x2, y2},
-					priority: -manhattanDistance(x2, y2, goalX, goalY),
+					priority: -manhattanDistance(x2, y2, goalX, goalY) - len(newActionList),
 				})
 			}
 		}

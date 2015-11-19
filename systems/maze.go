@@ -8,10 +8,17 @@ import (
 	"time"
 )
 
-var (
+const (
 	tileWidth  float32 = 80
 	tileHeight float32 = 80
 
+	randomMinWidth  = 5
+	randomMaxWidth  = 25
+	randomMinHeight = 5
+	randomMaxHeight = 25
+)
+
+var (
 	tilePlayerColor = color.NRGBA{0, 0, 100, 255}
 	tileWallColor   = color.NRGBA{0, 100, 0, 255}
 	tileBlankColor  = color.NRGBA{180, 180, 180, 255}
@@ -88,12 +95,17 @@ func (m *Maze) cleanup() {
 func (m *Maze) initialize(level string) {
 	m.active = true
 
-	for lvlId := range m.levels {
-		if m.levels[lvlId].Name == level {
-			m.currentLevel = m.levels[lvlId].Copy()
-			break
+	if len(level) == 0 {
+		m.currentLevel = NewRandomLevel(randomMinWidth, randomMaxWidth, randomMinHeight, randomMaxHeight)
+	} else {
+		for lvlId := range m.levels {
+			if m.levels[lvlId].Name == level {
+				m.currentLevel = m.levels[lvlId].Copy()
+				break
+			}
 		}
 	}
+
 	if m.currentLevel.ID == emptyLevel.ID {
 		if len(m.levels) > 0 {
 			m.currentLevel = m.levels[rand.Intn(len(m.levels))].Copy()
