@@ -4,11 +4,7 @@ import (
 	"github.com/EtienneBruines/bcigame/helpers"
 	"github.com/paked/engi"
 	"image/color"
-	"io/ioutil"
-	"log"
 	"math/rand"
-	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -29,92 +25,7 @@ var (
 	tileRoute  *engi.RenderComponent
 )
 
-type Tile uint8
-
-const (
-	TilePlayer Tile = iota
-	TileWall
-	TileBlank
-	TileGoal
-	TileRoute
-)
-
-func (t Tile) String() string {
-	switch t {
-	case TilePlayer:
-		return "X"
-	case TileWall:
-		return "-"
-	case TileBlank:
-		return " "
-	case TileGoal:
-		return "G"
-	case TileRoute:
-		return "+"
-	default:
-		return ""
-	}
-}
-
-type Level struct {
-	ID           int
-	Name         string
-	Width        int
-	Height       int
-	Grid         [][]Tile
-	GridEntities [][]*engi.Entity
-
-	PlayerX, PlayerY int
-}
-
-func NewLevel() Level {
-	idCounter++
-	return Level{ID: idCounter}
-}
-
-func (l *Level) IsAvailable(x, y int) bool {
-	if x < 0 || x >= l.Width || y < 0 || y >= l.Height {
-		return false
-	}
-
-	return l.Grid[y][x] != TileWall
-}
-
-func (l *Level) Copy() Level {
-	lvl := Level{
-		ID:      l.ID,
-		Name:    l.Name,
-		Width:   l.Width,
-		Height:  l.Height,
-		PlayerX: l.PlayerX,
-		PlayerY: l.PlayerY,
-	}
-
-	lvl.Grid = make([][]Tile, len(l.Grid))
-	for rowIndex, row := range l.Grid {
-		lvl.Grid[rowIndex] = make([]Tile, len(row))
-		for cellIndex, cell := range row {
-			lvl.Grid[rowIndex][cellIndex] = cell
-		}
-	}
-
-	return lvl
-}
-
-var emptyLevel = NewLevel()
-var idCounter = 0
-
-type Controller func(Level) Action
-
-type Action uint8
-
-const (
-	ActionUp Action = iota
-	ActionRight
-	ActionDown
-	ActionLeft
-	ActionStop
-)
+var ActiveMazeSystem *Maze
 
 type Maze struct {
 	*engi.System
@@ -131,8 +42,6 @@ type Maze struct {
 
 func (Maze) Type() string { return "MazeSystem" }
 
-var ActiveMazeSystem *Maze
-
 func (m *Maze) New() {
 	ActiveMazeSystem = m
 	m.System = engi.NewSystem()
@@ -143,7 +52,7 @@ func (m *Maze) New() {
 	tileGoal = helpers.GenerateSquareComonent(tileGoalColor, tileGoalColor, tileWidth, tileHeight, engi.ScenicGround+3)
 	tileRoute = helpers.GenerateSquareComonent(tileRouteColor, tileRouteColor, tileWidth, tileHeight, engi.ScenicGround+4)
 
-	m.loadLevels()
+	m.levels = LoadLevels(m.LevelDirectory)
 
 	engi.Mailbox.Listen("MazeMessage", func(msg engi.Message) {
 		mazeMsg, ok := msg.(MazeMessage)
@@ -153,67 +62,6 @@ func (m *Maze) New() {
 		m.cleanup()
 		m.initialize(mazeMsg.LevelName)
 	})
-}
-
-func (m *Maze) loadLevels() {
-	infos, err := ioutil.ReadDir(m.LevelDirectory)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var files []string
-
-	for _, info := range infos {
-		if !info.IsDir() {
-			ext := filepath.Ext(info.Name())
-			if ext[1:] == "maze" {
-				files = append(files, filepath.Join(m.LevelDirectory, info.Name()))
-			}
-		}
-	}
-
-	for _, file := range files {
-		lvl := NewLevel()
-
-		b, err := ioutil.ReadFile(file)
-		if err != nil {
-			continue // with other files
-		}
-
-		content := string(b)
-
-		lines := strings.Split(content, "\n")
-		lvl.Height = len(lines)
-
-		for lineIndex, line := range lines {
-			if lineIndex == 0 {
-				lvl.Name = line
-				continue // with the actual maze
-			}
-			if len(line) > lvl.Width {
-				lvl.Width = len(line)
-			}
-
-			gameRow := make([]Tile, len(line))
-			for index, char := range line {
-				switch char {
-				case 'X':
-					gameRow[index] = TilePlayer
-				case '-':
-					gameRow[index] = TileWall
-				case 'G':
-					gameRow[index] = TileGoal
-				case ' ':
-					gameRow[index] = TileBlank
-				case '+':
-					gameRow[index] = TileRoute
-				}
-			}
-			lvl.Grid = append(lvl.Grid, gameRow)
-		}
-
-		m.levels = append(m.levels, lvl)
-	}
 }
 
 func (m *Maze) cleanup() {
@@ -293,6 +141,9 @@ func (m *Maze) initialize(level string) {
 	m.playerEntity.AddComponent(tilePlayer)
 	m.playerEntity.AddComponent(&engi.SpaceComponent{engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight}, tileWidth, tileHeight})
 	m.World.AddEntity(m.playerEntity)
+
+	// Initialize the controller
+	m.Controller.New()
 }
 
 func (m *Maze) Update(entity *engi.Entity, dt float32) {
@@ -311,7 +162,7 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 
 	oldX, oldY := m.currentLevel.PlayerX, m.currentLevel.PlayerY
 
-	switch m.Controller(m.currentLevel) {
+	switch m.Controller.Action(m.currentLevel) {
 	case ActionUp:
 		m.currentLevel.PlayerY--
 	case ActionDown:
@@ -339,38 +190,6 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 			}
 		},
 	})
-}
-
-func ControllerKeyboard(l Level) Action {
-	if engi.Keys.Get(engi.D).Down() && l.IsAvailable(l.PlayerX+1, l.PlayerY) {
-		return ActionRight
-	} else if engi.Keys.Get(engi.A).Down() && l.IsAvailable(l.PlayerX-1, l.PlayerY) {
-		return ActionLeft
-	} else if engi.Keys.Get(engi.S).Down() && l.IsAvailable(l.PlayerX, l.PlayerY+1) {
-		return ActionDown
-	} else if engi.Keys.Get(engi.W).Down() && l.IsAvailable(l.PlayerX, l.PlayerY-1) {
-		return ActionUp
-	}
-
-	return ActionStop
-}
-
-func ControllerAutoPilot(l Level) Action {
-	priority := []Tile{TileGoal, TileRoute}
-
-	for _, p := range priority {
-		if l.Grid[l.PlayerY][l.PlayerX-1] == p {
-			return ActionLeft
-		} else if l.Grid[l.PlayerY][l.PlayerX+1] == p {
-			return ActionRight
-		} else if l.Grid[l.PlayerY-1][l.PlayerX] == p {
-			return ActionUp
-		} else if l.Grid[l.PlayerY+1][l.PlayerX] == p {
-			return ActionDown
-		}
-	}
-
-	return ActionStop
 }
 
 type MazeMessage struct {
