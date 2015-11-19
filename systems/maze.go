@@ -57,6 +57,7 @@ func (t Tile) String() string {
 }
 
 type Level struct {
+	ID           int
 	Name         string
 	Width        int
 	Height       int
@@ -66,6 +67,11 @@ type Level struct {
 	PlayerX, PlayerY int
 }
 
+func NewLevel() Level {
+	idCounter++
+	return Level{ID: idCounter}
+}
+
 func (l *Level) IsAvailable(x, y int) bool {
 	if x < 0 || x >= l.Width || y < 0 || y >= l.Height {
 		return false
@@ -73,6 +79,30 @@ func (l *Level) IsAvailable(x, y int) bool {
 
 	return l.Grid[y][x] != TileWall
 }
+
+func (l *Level) Copy() Level {
+	lvl := Level{
+		ID:      l.ID,
+		Name:    l.Name,
+		Width:   l.Width,
+		Height:  l.Height,
+		PlayerX: l.PlayerX,
+		PlayerY: l.PlayerY,
+	}
+
+	lvl.Grid = make([][]Tile, len(l.Grid))
+	for rowIndex, row := range l.Grid {
+		lvl.Grid[rowIndex] = make([]Tile, len(row))
+		for cellIndex, cell := range row {
+			lvl.Grid[rowIndex][cellIndex] = cell
+		}
+	}
+
+	return lvl
+}
+
+var emptyLevel = NewLevel()
+var idCounter = 0
 
 type Controller func(Level) Action
 
@@ -95,7 +125,7 @@ type Maze struct {
 
 	levels []Level
 
-	currentLevel *Level
+	currentLevel Level
 	playerEntity *engi.Entity
 }
 
@@ -120,10 +150,8 @@ func (m *Maze) New() {
 		if !ok {
 			return
 		}
-		if m.active {
-			m.cleanup()
-		}
-		m.initialize(mazeMsg.Level)
+		m.cleanup()
+		m.initialize(mazeMsg.LevelName)
 	})
 }
 
@@ -145,7 +173,7 @@ func (m *Maze) loadLevels() {
 	}
 
 	for _, file := range files {
-		lvl := Level{}
+		lvl := NewLevel()
 
 		b, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -196,10 +224,13 @@ func (m *Maze) cleanup() {
 			m.World.RemoveEntity(cell)
 		}
 	}
-	m.World.RemoveEntity(m.playerEntity)
 
-	m.currentLevel = nil
-	m.playerEntity = nil
+	if m.playerEntity != nil {
+		m.World.RemoveEntity(m.playerEntity)
+		m.playerEntity = nil
+	}
+
+	m.currentLevel = emptyLevel
 
 	for _, entity := range m.Entities() {
 		m.World.RemoveEntity(entity)
@@ -211,13 +242,13 @@ func (m *Maze) initialize(level string) {
 
 	for lvlId := range m.levels {
 		if m.levels[lvlId].Name == level {
-			m.currentLevel = &m.levels[lvlId]
+			m.currentLevel = m.levels[lvlId].Copy()
 			break
 		}
 	}
-	if m.currentLevel == nil {
+	if m.currentLevel.ID == emptyLevel.ID {
 		if len(m.levels) > 0 {
-			m.currentLevel = &m.levels[rand.Intn(len(m.levels))]
+			m.currentLevel = m.levels[rand.Intn(len(m.levels))].Copy()
 		} else {
 			return
 		}
@@ -274,9 +305,13 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 		return // because we're still moving!
 	}
 
+	if m.currentLevel.Width == 0 || m.currentLevel.Height == 0 {
+		return // because there's no maze
+	}
+
 	oldX, oldY := m.currentLevel.PlayerX, m.currentLevel.PlayerY
 
-	switch m.Controller(*m.currentLevel) {
+	switch m.Controller(m.currentLevel) {
 	case ActionUp:
 		m.currentLevel.PlayerY--
 	case ActionDown:
@@ -339,7 +374,7 @@ func ControllerAutoPilot(l Level) Action {
 }
 
 type MazeMessage struct {
-	Level string
+	LevelName string
 }
 
 func (MazeMessage) Type() string { return "MazeMessage" }

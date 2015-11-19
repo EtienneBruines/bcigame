@@ -57,5 +57,5 @@ func main() {
 	}
 
 	// TODO: don't hardcode this
-	engi.Open(gameTitle, 400, 800, false, &BCIGame{})
+	engi.Open(gameTitle, 1920, 500, false, &BCIGame{})
 }
