@@ -166,8 +166,12 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 		return
 	}
 
-	var move *MovementComponent
-	if entity.GetComponent(&move) {
+	var (
+		move *MovementComponent
+		ok   bool
+	)
+
+	if move, ok = entity.ComponentFast(move).(*MovementComponent); ok {
 		return // because we're still moving!
 	}
 

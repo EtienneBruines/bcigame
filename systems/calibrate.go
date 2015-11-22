@@ -140,11 +140,24 @@ func (c *Calibrate) Pre() {
 	for chIndex := range c.channels {
 		c.channels[chIndex].freq = c.Header.SamplingFrequency
 	}
+
+	// Apply filters
+	for _, channel := range c.channels {
+		Center(channel.Values)
+	}
 }
 
 func (c *Calibrate) Update(entity *engi.Entity, dt float32) {
-	var cal *CalibrateComponent
-	if !entity.GetComponent(&cal) {
+	if c.frameIndex != 0 {
+		return
+	}
+
+	var (
+		cal *CalibrateComponent
+		ok  bool
+	)
+
+	if cal, ok = entity.ComponentFast(cal).(*CalibrateComponent); !ok {
 		return
 	}
 
@@ -178,7 +191,7 @@ type CalibrateComponent struct {
 	ChannelIndex uint32
 }
 
-func (CalibrateComponent) Type() string {
+func (*CalibrateComponent) Type() string {
 	return "CalibrateComponent"
 }
 
@@ -190,7 +203,7 @@ func (CalibrateMessage) Type() string {
 	return "CalibrateMessage"
 }
 
-var timePeriod = float32(5) // seconds
+var timePeriod = float32(2.5) // seconds
 const dpi = 96
 
 type channelXYer struct {
