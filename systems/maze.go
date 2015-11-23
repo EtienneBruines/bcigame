@@ -13,7 +13,7 @@ const (
 	tileWidth  float32 = 80
 	tileHeight float32 = 80
 
-	moveSpeed = 15.0
+	moveSpeed = 60.0
 
 	randomMinWidth  = 15
 	randomMaxWidth  = 35
@@ -23,10 +23,6 @@ const (
 
 var (
 	tilePlayerColor = color.NRGBA{0, 0, 100, 255}
-	tileWallColor   = color.NRGBA{0, 100, 0, 255}
-	tileBlankColor  = color.NRGBA{180, 180, 180, 255}
-	tileGoalColor   = color.NRGBA{0, 255, 255, 255}
-	tileRouteColor  = color.NRGBA{255, 0, 0, 255}
 
 	tilePlayer *engi.RenderComponent
 	tileWall   *engi.RenderComponent
@@ -57,10 +53,10 @@ func (m *Maze) New() {
 	m.System = engi.NewSystem()
 
 	tilePlayer = helpers.GenerateSquareComonent(tilePlayerColor, tilePlayerColor, tileWidth, tileHeight, engi.MiddleGround)
-	tileWall = helpers.GenerateSquareComonent(tileWallColor, tileWallColor, tileWidth, tileHeight, engi.ScenicGround+1)
-	tileBlank = helpers.GenerateSquareComonent(tileBlankColor, tileBlankColor, tileWidth, tileHeight, engi.ScenicGround+2)
-	tileGoal = helpers.GenerateSquareComonent(tileGoalColor, tileGoalColor, tileWidth, tileHeight, engi.ScenicGround+3)
-	tileRoute = helpers.GenerateSquareComonent(tileRouteColor, tileRouteColor, tileWidth, tileHeight, engi.ScenicGround+4)
+	tileWall = helpers.LoadTexture("bg-wall.jpg", tileWidth, tileHeight, engi.ScenicGround+1)
+	tileBlank = helpers.LoadTexture("bg-blank.jpg", tileWidth, tileHeight, engi.ScenicGround+2)
+	tileGoal = helpers.LoadTexture("bg-goal.png", tileWidth, tileHeight, engi.ScenicGround+3)
+	tileRoute = helpers.LoadTexture("bg-route.png", tileWidth, tileHeight, engi.ScenicGround+4)
 
 	m.levels = LoadLevels(m.LevelDirectory)
 

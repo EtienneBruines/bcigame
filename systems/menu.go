@@ -14,7 +14,6 @@ var (
 	MenuColorItemBackground      = color.NRGBA{0, 0, 0, 125}
 	MenuColorItemBackgroundFocus = color.NRGBA{64, 96, 0, 200}
 	MenuColorItemForeground      = engi.Color{255, 255, 255, 255}
-	MenuColorItemBox             = color.NRGBA{230, 230, 230, 255}
 
 	menuItemHeight      = float32(50)
 	menuItemOffsetX     = float32(menuPadding + menuItemPadding)
