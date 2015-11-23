@@ -43,7 +43,7 @@ type AutoPilotController struct{}
 func (ac *AutoPilotController) New() {}
 
 func (ac *AutoPilotController) Action(l Level) Action {
-	priority := []Tile{TileGoal, TileRoute}
+	priority := []Tile{TileGoal, TileHiddenError, TileRoute, TileError}
 
 	for _, p := range priority {
 		if l.Grid[l.PlayerY][l.PlayerX-1] == p {

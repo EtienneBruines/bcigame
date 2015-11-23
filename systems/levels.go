@@ -1,11 +1,13 @@
 package systems
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/paked/engi"
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -13,11 +15,14 @@ import (
 type Tile uint8
 
 const (
+	_               = iota
 	TilePlayer Tile = iota
 	TileWall
 	TileBlank
 	TileGoal
 	TileRoute
+	TileHiddenError
+	TileError
 )
 
 func (t Tile) String() string {
@@ -32,6 +37,10 @@ func (t Tile) String() string {
 		return "G"
 	case TileRoute:
 		return "+"
+	case TileError:
+		return "E"
+	case TileHiddenError:
+		return "H"
 	default:
 		return ""
 	}
@@ -137,6 +146,10 @@ func LoadLevels(dir string) (levels []Level) {
 					gameRow[index] = TileBlank
 				case '+':
 					gameRow[index] = TileRoute
+				case 'E':
+					gameRow[index] = TileError
+				case 'H':
+					gameRow[index] = TileHiddenError
 				}
 			}
 			lvl.Grid = append(lvl.Grid, gameRow)
@@ -145,6 +158,56 @@ func LoadLevels(dir string) (levels []Level) {
 		levels = append(levels, lvl)
 	}
 	return
+}
+
+func (l *Level) Save(file string) {
+	// Find goal
+	var goalX, goalY int
+	for rowIndex, row := range l.Grid {
+		for cellIndex, cell := range row {
+			if cell == TileGoal {
+				goalX, goalY = cellIndex, rowIndex
+			}
+		}
+	}
+
+	// Add route
+	l.PlayerX = l.Width - 2
+	l.PlayerY = l.Height - 2
+	route := computeRoute(l, l.PlayerX, l.PlayerY, goalX, goalY)
+	for _, action := range route {
+		l.Grid[l.PlayerY][l.PlayerX] = TileRoute
+		switch action {
+		case ActionUp:
+			l.PlayerY--
+		case ActionDown:
+			l.PlayerY++
+		case ActionLeft:
+			l.PlayerX--
+		case ActionRight:
+			l.PlayerX++
+		}
+	}
+
+	l.Grid[l.Height-2][l.Width-2] = TilePlayer
+
+	// Actually saving
+	var buffer bytes.Buffer
+	for _, row := range l.Grid {
+		for _, cell := range row {
+			buffer.WriteString(cell.String())
+		}
+		buffer.WriteString("\n")
+	}
+
+	fileBuffer, err := os.Create(file)
+	if err != nil {
+		log.Println(err)
+	}
+	defer fileBuffer.Close()
+
+	buffer.WriteTo(fileBuffer)
+
 }
 
 func NewRandomLevel(minWidth, maxWidth int, minHeight, maxHeight int) Level {
@@ -163,6 +226,9 @@ func NewRandomLevel(minWidth, maxWidth int, minHeight, maxHeight int) Level {
 	lvl.Grid = make([][]Tile, lvl.Height)
 	for rowIndex := range lvl.Grid {
 		lvl.Grid[rowIndex] = make([]Tile, lvl.Width)
+		for cellIndex := range lvl.Grid[rowIndex] {
+			lvl.Grid[rowIndex][cellIndex] = TileBlank
+		}
 	}
 
 	lvl.Name = fmt.Sprintf("Random %d by %d", lvl.Width, lvl.Height)

@@ -18,6 +18,7 @@ func Mean(numbers []float64) float64 {
 }
 
 func Detrend(numbers []float64) {
+	// TODO: finish it
 	sumX := len(numbers) * len(numbers) / 2
 	sumY := 0.0
 	sumXY := 0.0

@@ -27,7 +27,7 @@ func (b *BCIGame) Setup(w *engi.World) {
 	engi.SetBg(0x444444)
 
 	w.AddSystem(&systems.Menu{})
-	w.AddSystem(&systems.Maze{LevelDirectory: filepath.Join(assetsDir, levelsDir), Controller: &systems.AIController{}})
+	w.AddSystem(&systems.Maze{LevelDirectory: filepath.Join(assetsDir, levelsDir), Controller: &systems.KeyboardController{}})
 	w.AddSystem(&systems.FPS{BaseTitle: gameTitle})
 	w.AddSystem(&systems.MovementSystem{})
 	w.AddSystem(&engi.PauseSystem{})
@@ -57,5 +57,5 @@ func main() {
 	}
 
 	// TODO: don't hardcode this
-	engi.Open(gameTitle, 1920, 700, false, &BCIGame{})
+	engi.Open(gameTitle, 1100, 800, false, &BCIGame{})
 }

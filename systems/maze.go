@@ -5,6 +5,7 @@ import (
 	"github.com/paked/engi"
 	"image/color"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,7 +14,7 @@ const (
 	tileWidth  float32 = 80
 	tileHeight float32 = 80
 
-	moveSpeed = 15.0
+	moveSpeed = 60.0
 
 	randomMinWidth  = 15
 	randomMaxWidth  = 35
@@ -68,6 +69,9 @@ func (m *Maze) New() {
 		mazeMsg, ok := msg.(MazeMessage)
 		if !ok {
 			return
+		}
+		if _, ok = m.Controller.(*AIController); ok && m.active {
+			m.currentLevel.Save("assets/levels/random-" + strconv.Itoa(int(time.Now().Unix())) + ".maze")
 		}
 		m.cleanup()
 		m.initialize(mazeMsg.LevelName)
@@ -144,6 +148,10 @@ func (m *Maze) initialize(level string) {
 				e.AddComponent(tileGoal)
 			case TileRoute:
 				e.AddComponent(tileRoute)
+			case TileError:
+				e.AddComponent(tileRoute)
+			case TileHiddenError:
+				e.AddComponent(tileBlank)
 			}
 
 			m.currentLevel.GridEntities[rowNumber][columnNumber] = e
@@ -203,6 +211,7 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 	}
 
 	if !m.currentLevel.IsAvailable(m.currentLevel.PlayerX, m.currentLevel.PlayerY) {
+		m.currentLevel.PlayerX, m.currentLevel.PlayerY = oldX, oldY
 		return // because it's an invalid move
 	}
 
@@ -214,6 +223,12 @@ func (m *Maze) Update(entity *engi.Entity, dt float32) {
 			if m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] == TileRoute {
 				m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] = TileBlank
 				m.currentLevel.GridEntities[m.currentLevel.PlayerY][m.currentLevel.PlayerX].AddComponent(tileBlank)
+			} else if m.currentLevel.Grid[oldY][oldX] == TileError {
+				m.currentLevel.Grid[oldY][oldX] = TileRoute
+
+				if m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] == TileHiddenError {
+					m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] = TileError
+				}
 			}
 		},
 	})
