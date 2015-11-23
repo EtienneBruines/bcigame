@@ -53,9 +53,3 @@ func GenerateSquareComonent(c1, c2 color.NRGBA, w, h float32, priority engi.Prio
 
 	return fieldRender
 }
-
-func LoadTexture(name string, w, h float32, priority engi.PriorityLevel, requirements ...string) *engi.RenderComponent {
-	fieldRender := engi.NewRenderComponent(engi.NewRegion(engi.Files.Image(name), 0, 0, int(w), int(h)), engi.Point{1, 1}, "")
-	fieldRender.SetPriority(priority)
-	return fieldRender
-}
