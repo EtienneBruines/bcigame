@@ -34,7 +34,7 @@ func (b *BCIGame) Setup(w *ecs.World) {
 	w.AddSystem(&systems.MovementSystem{})
 	w.AddSystem(&engi.RenderSystem{})
 	w.AddSystem(&engi.AudioSystem{})
-	//w.AddSystem(&systems.Calibrate{})
+	w.AddSystem(&systems.Calibrate{})
 
 	engi.Mailbox.Dispatch(systems.MazeMessage{})
 }

@@ -126,6 +126,8 @@ func (m *Maze) initialize(level string) {
 		}
 	}
 
+	ActiveCalibrateSystem.Connection.PutEvent("Started Level", m.currentLevel.Name)
+
 	// Create world
 	engi.WorldBounds.Max = engi.Point{float32(m.currentLevel.Width) * tileWidth, float32(m.currentLevel.Height) * tileHeight}
 

@@ -47,12 +47,32 @@ func (ac *AutoPilotController) Action(l Level) Action {
 
 	for _, p := range priority {
 		if l.Grid[l.PlayerY][l.PlayerX-1] == p {
+			if p == TileHiddenError {
+				ActiveCalibrateSystem.Connection.PutEvent("Tile", "TileHiddenError")
+			} else {
+				ActiveCalibrateSystem.Connection.PutEvent("Tile", "OnRoute")
+			}
 			return ActionLeft
 		} else if l.Grid[l.PlayerY][l.PlayerX+1] == p {
+			if p == TileHiddenError {
+				ActiveCalibrateSystem.Connection.PutEvent("Tile", "TileHiddenError")
+			} else {
+				ActiveCalibrateSystem.Connection.PutEvent("Tile", "OnRoute")
+			}
 			return ActionRight
 		} else if l.Grid[l.PlayerY-1][l.PlayerX] == p {
+			if p == TileHiddenError {
+				ActiveCalibrateSystem.Connection.PutEvent("Tile", "TileHiddenError")
+			} else {
+				ActiveCalibrateSystem.Connection.PutEvent("Tile", "OnRoute")
+			}
 			return ActionUp
 		} else if l.Grid[l.PlayerY+1][l.PlayerX] == p {
+			if p == TileHiddenError {
+				ActiveCalibrateSystem.Connection.PutEvent("Tile", "TileHiddenError")
+			} else {
+				ActiveCalibrateSystem.Connection.PutEvent("Tile", "OnRoute")
+			}
 			return ActionDown
 		}
 	}

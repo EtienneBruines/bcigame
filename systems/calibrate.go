@@ -16,6 +16,10 @@ import (
 	"image/color"
 )
 
+var (
+	ActiveCalibrateSystem *Calibrate
+)
+
 type Calibrate struct {
 	*ecs.System
 	World *ecs.World
@@ -33,6 +37,7 @@ func (Calibrate) Type() string {
 }
 
 func (c *Calibrate) New(w *ecs.World) {
+	ActiveCalibrateSystem = c
 	c.System = ecs.NewSystem()
 	c.World = w
 
