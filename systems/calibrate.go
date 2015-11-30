@@ -12,10 +12,13 @@ import (
 	"github.com/gonum/plot/vg/draw"
 	"github.com/gonum/plot/vg/vgimg"
 	"github.com/paked/engi"
+	"github.com/paked/engi/ecs"
+	"image/color"
 )
 
 type Calibrate struct {
-	*engi.System
+	*ecs.System
+	World *ecs.World
 
 	Connection *gobci.Connection
 	Header     *gobci.Header
@@ -29,24 +32,10 @@ func (Calibrate) Type() string {
 	return "CalibrateSystem"
 }
 
-func (c *Calibrate) New() {
-	c.System = engi.NewSystem()
+func (c *Calibrate) New(w *ecs.World) {
+	c.System = ecs.NewSystem()
+	c.World = w
 
-	/*
-		// TODO: don't hardcode directories
-		cmd1 := exec.Command("/home/etiennebruines/workspaces/bci/dataAcq/startNoSaveBuffer.sh")
-		err := cmd1.Start()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		cmd2 := exec.Command("/home/etiennebruines/workspaces/bci/dataAcq/startMatlabSignalProxy.sh")
-		err = cmd2.Start()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		time.Sleep(time.Second * 2)*/
 	var err error
 
 	c.Connection, err = gobci.Connect("")
@@ -80,17 +69,17 @@ func (c *Calibrate) New() {
 }
 
 func (c *Calibrate) destroyScene() {
-	engi.Mailbox.Dispatch(engi.PauseMessage{false})
+	// engi.Mailbox.Dispatch(engi.PauseMessage{false})
 }
 
 func (c *Calibrate) drawScene() {
-	engi.Mailbox.Dispatch(engi.PauseMessage{true})
+	// engi.Mailbox.Dispatch(engi.PauseMessage{true})
 
 	for i := uint32(0); i < c.Header.NChannels; i++ {
-		e := engi.NewEntity([]string{c.Type(), "RenderSystem"})
+		e := ecs.NewEntity([]string{c.Type(), "RenderSystem"})
 		espace := &engi.SpaceComponent{engi.Point{0, float32(i * (3*dpi + 10))}, 0, 0}
 		e.AddComponent(espace)
-		e.AddComponent(&engi.UnpauseComponent{})
+		//e.AddComponent(&engi.UnpauseComponent{})
 		e.AddComponent(&CalibrateComponent{i})
 
 		c.World.AddEntity(e)
@@ -147,7 +136,7 @@ func (c *Calibrate) Pre() {
 	}
 }
 
-func (c *Calibrate) Update(entity *engi.Entity, dt float32) {
+func (c *Calibrate) Update(entity *ecs.Entity, dt float32) {
 	if c.frameIndex != 0 {
 		return
 	}
@@ -180,7 +169,7 @@ func (c *Calibrate) Update(entity *engi.Entity, dt float32) {
 		Display:      engi.NewRegion(engi.NewTexture(bgTexture), 0, 0, 3*dpi, 3*dpi),
 		Scale:        engi.Point{1, 1},
 		Transparency: 1,
-		Color:        0xffffff,
+		Color:        color.RGBA{255, 255, 255, 255},
 	}
 	erender.SetPriority(engi.HUDGround)
 

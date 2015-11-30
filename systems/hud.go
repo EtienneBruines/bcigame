@@ -1,15 +1,17 @@
 package systems
 
-import "github.com/paked/engi"
+import (
+	"github.com/paked/engi/ecs"
+)
 
 type Hud struct {
-	*engi.System
+	*ecs.System
 }
 
-func (h *Hud) New() {
-	h.System = engi.NewSystem()
+func (h *Hud) New(*ecs.World) {
+	h.System = ecs.NewSystem()
 }
 
-func (h *Hud) Update(entity *engi.Entity, dt float32) {
+func (h *Hud) Update(entity *ecs.Entity, dt float32) {
 
 }

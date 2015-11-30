@@ -1,13 +1,15 @@
 package main
 
 import (
-	"github.com/EtienneBruines/bcigame/systems"
-	"github.com/paked/engi"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime/pprof"
+
+	"github.com/EtienneBruines/bcigame/systems"
+	"github.com/paked/engi"
+	"github.com/paked/engi/ecs"
 )
 
 const (
@@ -23,14 +25,13 @@ func (b *BCIGame) Preload() {
 	engi.Files.AddFromDir(assetsDir, true)
 }
 
-func (b *BCIGame) Setup(w *engi.World) {
+func (b *BCIGame) Setup(w *ecs.World) {
 	engi.SetBg(0x444444)
 
 	w.AddSystem(&systems.Menu{})
-	w.AddSystem(&systems.Maze{LevelDirectory: filepath.Join(assetsDir, levelsDir), Controller: &systems.KeyboardController{}})
+	w.AddSystem(&systems.Maze{LevelDirectory: filepath.Join(assetsDir, levelsDir), Controller: &systems.AutoPilotController{}})
 	w.AddSystem(&systems.FPS{BaseTitle: gameTitle})
 	w.AddSystem(&systems.MovementSystem{})
-	w.AddSystem(&engi.PauseSystem{})
 	w.AddSystem(&engi.RenderSystem{})
 	w.AddSystem(&engi.AudioSystem{})
 	//w.AddSystem(&systems.Calibrate{})
@@ -57,5 +58,5 @@ func main() {
 	}
 
 	// TODO: don't hardcode this
-	engi.Open(gameTitle, 1100, 800, false, &BCIGame{})
+	engi.Open(gameTitle, 1600, 800, false, &BCIGame{})
 }

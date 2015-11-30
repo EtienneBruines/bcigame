@@ -3,6 +3,7 @@ package systems
 import (
 	"github.com/EtienneBruines/bcigame/helpers"
 	"github.com/paked/engi"
+	"github.com/paked/engi/ecs"
 	"image/color"
 	"log"
 	"os"
@@ -13,7 +14,7 @@ var (
 	MenuColorBox                 = color.NRGBA{180, 180, 180, 255}
 	MenuColorItemBackground      = color.NRGBA{0, 0, 0, 125}
 	MenuColorItemBackgroundFocus = color.NRGBA{64, 96, 0, 200}
-	MenuColorItemForeground      = engi.Color{255, 255, 255, 255}
+	MenuColorItemForeground      = color.NRGBA{255, 255, 255, 255}
 	MenuColorItemBox             = color.NRGBA{230, 230, 230, 255}
 
 	menuItemHeight      = float32(50)
@@ -29,19 +30,20 @@ type MenuItem struct {
 	SubItems []*MenuItem
 	Parent   *MenuItem
 
-	menuBackground *engi.Entity
-	menuLabel      *engi.Entity
+	menuBackground *ecs.Entity
+	menuLabel      *ecs.Entity
 }
 
 type Menu struct {
-	*engi.System
+	*ecs.System
+	World *ecs.World
 
 	defaultBackground *engi.RenderComponent
 	focusBackground   *engi.RenderComponent
 
 	menuActive       bool
-	menuEntities     []*engi.Entity
-	menuItemEntities []*engi.Entity
+	menuEntities     []*ecs.Entity
+	menuItemEntities []*ecs.Entity
 	menuFocus        int
 	items            []*MenuItem
 	itemSelected     *MenuItem
@@ -51,8 +53,9 @@ func (*Menu) Type() string {
 	return "MenuSystem"
 }
 
-func (m *Menu) New() {
-	m.System = engi.NewSystem()
+func (m *Menu) New(w *ecs.World) {
+	m.System = ecs.NewSystem()
+	m.World = w
 
 	specificLevel := &MenuItem{Text: "Play specific level ..."}
 
@@ -72,8 +75,8 @@ func (m *Menu) New() {
 		}
 	}
 
-	e := engi.NewEntity([]string{m.Type()})
-	e.AddComponent(&engi.UnpauseComponent{})
+	e := ecs.NewEntity([]string{m.Type()})
+	//e.AddComponent(&engi.UnpauseComponent{})
 	m.AddEntity(e)
 	m.items = []*MenuItem{
 		{Text: "Random Level", Callback: func() {
@@ -106,7 +109,7 @@ func (m *Menu) New() {
 	)
 }
 
-func (m *Menu) Update(entity *engi.Entity, dt float32) {
+func (m *Menu) Update(entity *ecs.Entity, dt float32) {
 	// Check for ESCAPE
 	if engi.Keys.Get(engi.Escape).JustPressed() {
 		if m.menuActive {
@@ -167,7 +170,7 @@ func (m *Menu) Update(entity *engi.Entity, dt float32) {
 
 func (m *Menu) closeMenu() {
 	// Unpause everything
-	engi.Mailbox.Dispatch(engi.PauseMessage{false})
+	//engi.Mailbox.Dispatch(engi.PauseMessage{false})
 
 	// Remove all entities
 	for _, e := range m.menuEntities {
@@ -180,7 +183,7 @@ func (m *Menu) closeMenu() {
 
 func (m *Menu) openMenu() {
 	// Pause everything
-	engi.Mailbox.Dispatch(engi.PauseMessage{true})
+	//engi.Mailbox.Dispatch(engi.PauseMessage{true})
 
 	m.menuFocus = 0
 
@@ -196,7 +199,7 @@ func (m *Menu) openMenu() {
 		engi.HUDGround,
 		"AudioSystem",
 	)
-	menuBackground.AddComponent(&engi.UnpauseComponent{})
+	//menuBackground.AddComponent(&engi.UnpauseComponent{})
 	menuBackground.AddComponent(&engi.AudioComponent{File: "click_x.wav", Repeat: false, Background: true})
 	m.menuEntities = append(m.menuEntities, menuBackground)
 	m.World.AddEntity(menuBackground)
@@ -211,7 +214,7 @@ func (m *Menu) openMenu() {
 		menuPadding, menuPadding,
 		engi.HUDGround+1,
 	)
-	menuEntity.AddComponent(&engi.UnpauseComponent{})
+	//menuEntity.AddComponent(&engi.UnpauseComponent{})
 	m.menuEntities = append(m.menuEntities, menuEntity)
 	m.World.AddEntity(menuEntity)
 
@@ -233,7 +236,7 @@ func (m *Menu) openMenu() {
 	}
 
 	for itemID, item := range itemList {
-		item.menuBackground = engi.NewEntity([]string{"RenderSystem"})
+		item.menuBackground = ecs.NewEntity([]string{"RenderSystem"})
 		if itemID == m.menuFocus {
 			item.menuBackground.AddComponent(m.focusBackground)
 		} else {
@@ -241,16 +244,16 @@ func (m *Menu) openMenu() {
 		}
 		item.menuBackground.AddComponent(&engi.SpaceComponent{
 			engi.Point{menuItemOffsetX, offsetY}, menuWidth - 2*menuItemPadding, menuItemHeight})
-		item.menuBackground.AddComponent(&engi.UnpauseComponent{})
+		//item.menuBackground.AddComponent(&engi.UnpauseComponent{})
 		m.menuEntities = append(m.menuEntities, item.menuBackground)
 		m.World.AddEntity(item.menuBackground)
 
-		item.menuLabel = engi.NewEntity([]string{"RenderSystem"})
+		item.menuLabel = ecs.NewEntity([]string{"RenderSystem"})
 		menuItemLabelRender := &engi.RenderComponent{
 			Display:      itemFont.Render(item.Text),
 			Scale:        engi.Point{labelFontScale, labelFontScale},
 			Transparency: 1,
-			Color:        0xffffff,
+			Color:        color.RGBA{255, 255, 255, 255},
 		}
 		menuItemLabelRender.SetPriority(engi.HUDGround + 3)
 		item.menuLabel.AddComponent(menuItemLabelRender)
@@ -259,7 +262,7 @@ func (m *Menu) openMenu() {
 				menuItemOffsetX + (menuItemHeight-float32(itemFont.Size)*labelFontScale)/2,
 				offsetY + menuItemFontPadding + (menuItemHeight-float32(itemFont.Size)*labelFontScale)/2,
 			}})
-		item.menuLabel.AddComponent(&engi.UnpauseComponent{})
+		//item.menuLabel.AddComponent(&engi.UnpauseComponent{})
 		m.menuEntities = append(m.menuEntities, item.menuLabel)
 		m.World.AddEntity(item.menuLabel)
 

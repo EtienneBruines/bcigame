@@ -1,20 +1,22 @@
 package systems
 
 import (
-	"github.com/EtienneBruines/bcigame/helpers"
-	"github.com/paked/engi"
 	"image/color"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/EtienneBruines/bcigame/helpers"
+	"github.com/paked/engi"
+	"github.com/paked/engi/ecs"
 )
 
 const (
 	tileWidth  float32 = 80
 	tileHeight float32 = 80
 
-	moveSpeed = 60.0
+	moveSpeed = 3.0
 
 	randomMinWidth  = 15
 	randomMaxWidth  = 35
@@ -39,7 +41,9 @@ var (
 var ActiveMazeSystem *Maze
 
 type Maze struct {
-	*engi.System
+	*ecs.System
+	World *ecs.World
+
 	LevelDirectory string
 	Controller     Controller
 
@@ -48,14 +52,15 @@ type Maze struct {
 	levels []Level
 
 	currentLevel Level
-	playerEntity *engi.Entity
+	playerEntity *ecs.Entity
 }
 
 func (Maze) Type() string { return "MazeSystem" }
 
-func (m *Maze) New() {
+func (m *Maze) New(w *ecs.World) {
 	ActiveMazeSystem = m
-	m.System = engi.NewSystem()
+	m.System = ecs.NewSystem()
+	m.World = w
 
 	tilePlayer = helpers.GenerateSquareComonent(tilePlayerColor, tilePlayerColor, tileWidth, tileHeight, engi.MiddleGround)
 	tileWall = helpers.GenerateSquareComonent(tileWallColor, tileWallColor, tileWidth, tileHeight, engi.ScenicGround+1)
@@ -128,11 +133,11 @@ func (m *Maze) initialize(level string) {
 	engi.Mailbox.Dispatch(engi.CameraMessage{engi.YAxis, float32(m.currentLevel.Height) * tileHeight / 2, false})
 
 	// Initialize the tiles
-	m.currentLevel.GridEntities = make([][]*engi.Entity, len(m.currentLevel.Grid))
+	m.currentLevel.GridEntities = make([][]*ecs.Entity, len(m.currentLevel.Grid))
 	for rowNumber, tileRow := range m.currentLevel.Grid {
-		m.currentLevel.GridEntities[rowNumber] = make([]*engi.Entity, len(tileRow))
+		m.currentLevel.GridEntities[rowNumber] = make([]*ecs.Entity, len(tileRow))
 		for columnNumber, tile := range tileRow {
-			e := engi.NewEntity([]string{"RenderSystem"})
+			e := ecs.NewEntity([]string{"RenderSystem"})
 			e.AddComponent(&engi.SpaceComponent{engi.Point{float32(columnNumber) * tileWidth, float32(rowNumber) * tileHeight}, tileWidth, tileHeight})
 
 			switch tile {
@@ -160,7 +165,7 @@ func (m *Maze) initialize(level string) {
 	}
 
 	// Draw the player
-	m.playerEntity = engi.NewEntity([]string{"RenderSystem", "MovementSystem", m.Type()})
+	m.playerEntity = ecs.NewEntity([]string{"RenderSystem", "MovementSystem", m.Type()})
 	m.playerEntity.AddComponent(tilePlayer)
 	m.playerEntity.AddComponent(&engi.SpaceComponent{engi.Point{float32(m.currentLevel.PlayerX) * tileWidth, float32(m.currentLevel.PlayerY) * tileHeight}, tileWidth, tileHeight})
 	m.World.AddEntity(m.playerEntity)
@@ -169,7 +174,7 @@ func (m *Maze) initialize(level string) {
 	m.Controller.New()
 }
 
-func (m *Maze) Update(entity *engi.Entity, dt float32) {
+func (m *Maze) Update(entity *ecs.Entity, dt float32) {
 	if entity.ID() != m.playerEntity.ID() {
 		return
 	}

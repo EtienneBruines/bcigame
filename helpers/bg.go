@@ -2,13 +2,14 @@ package helpers
 
 import (
 	"github.com/paked/engi"
+	"github.com/paked/engi/ecs"
 	"image"
 	"image/color"
 )
 
 // GenerateSquare creates a square, alternating two colors, with given size and priority level
-func GenerateSquare(c1, c2 color.NRGBA, w, h float32, offX, offY float32, priority engi.PriorityLevel, requirements ...string) *engi.Entity {
-	field := engi.NewEntity(append([]string{"RenderSystem"}, requirements...))
+func GenerateSquare(c1, c2 color.NRGBA, w, h float32, offX, offY float32, priority engi.PriorityLevel, requirements ...string) *ecs.Entity {
+	field := ecs.NewEntity(append([]string{"RenderSystem"}, requirements...))
 	field.AddComponent(GenerateSquareComonent(c1, c2, w, h, priority))
 	field.AddComponent(&engi.SpaceComponent{engi.Point{offX, offY}, w, h})
 	return field

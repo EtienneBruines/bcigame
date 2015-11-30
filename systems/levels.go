@@ -3,13 +3,14 @@ package systems
 import (
 	"bytes"
 	"fmt"
-	"github.com/paked/engi"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/paked/engi/ecs"
 )
 
 type Tile uint8
@@ -52,7 +53,7 @@ type Level struct {
 	Width        int
 	Height       int
 	Grid         [][]Tile
-	GridEntities [][]*engi.Entity
+	GridEntities [][]*ecs.Entity
 
 	PlayerX, PlayerY int
 }

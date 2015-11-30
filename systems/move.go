@@ -2,20 +2,21 @@ package systems
 
 import (
 	"github.com/paked/engi"
+	"github.com/paked/engi/ecs"
 	"time"
 )
 
 type MovementSystem struct {
-	*engi.System
+	*ecs.System
 }
 
 func (*MovementSystem) Type() string { return "MovementSystem" }
 
-func (a *MovementSystem) New() {
-	a.System = engi.NewSystem()
+func (a *MovementSystem) New(*ecs.World) {
+	a.System = ecs.NewSystem()
 }
 
-func (a *MovementSystem) Update(entity *engi.Entity, dt float32) {
+func (a *MovementSystem) Update(entity *ecs.Entity, dt float32) {
 	var move *MovementComponent
 	if !entity.Component(&move) {
 		return
