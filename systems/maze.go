@@ -3,7 +3,6 @@ package systems
 import (
 	"image/color"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,8 +12,8 @@ import (
 )
 
 const (
-	tileWidth  float32 = 80
-	tileHeight float32 = 80
+	tileWidth  float32 = 40
+	tileHeight float32 = 40
 
 	moveSpeed = 3.0
 
@@ -47,7 +46,9 @@ type Maze struct {
 	LevelDirectory string
 	Controller     Controller
 
-	active bool
+	active        bool
+	sequence      SequenceMode
+	sequenceIndex int
 
 	levels []Level
 
@@ -75,10 +76,13 @@ func (m *Maze) New(w *ecs.World) {
 		if !ok {
 			return
 		}
-		if _, ok = m.Controller.(*AIController); ok && m.active {
-			m.currentLevel.Save("assets/levels/random-" + strconv.Itoa(int(time.Now().Unix())) + ".maze")
-		}
 		m.cleanup()
+
+		if mazeMsg.Sequence == SequenceDescending {
+			m.sequenceIndex = len(m.levels) - 1
+		}
+
+		m.sequence = mazeMsg.Sequence
 		m.initialize(mazeMsg.LevelName)
 	})
 }
@@ -108,7 +112,22 @@ func (m *Maze) initialize(level string) {
 	m.active = true
 
 	if len(level) == 0 {
-		m.currentLevel = NewRandomLevel(randomMinWidth, randomMaxWidth, randomMinHeight, randomMaxHeight)
+		switch m.sequence {
+		case SequenceAscending:
+			if m.sequenceIndex >= len(m.levels) {
+				return // we're done
+			}
+			m.currentLevel = m.levels[m.sequenceIndex]
+			m.sequenceIndex++
+		case SequenceDescending:
+			if m.sequenceIndex < 0 {
+				return // we're done
+			}
+			m.currentLevel = m.levels[m.sequenceIndex]
+			m.sequenceIndex--
+		case SequenceNone:
+			m.currentLevel = NewRandomLevel(randomMinWidth, randomMaxWidth, randomMinHeight, randomMaxHeight)
+		}
 	} else {
 		for lvlId := range m.levels {
 			if m.levels[lvlId].Name == level {
@@ -126,7 +145,9 @@ func (m *Maze) initialize(level string) {
 		}
 	}
 
-	ActiveCalibrateSystem.Connection.PutEvent("Started Level", m.currentLevel.Name)
+	if ActiveCalibrateSystem != nil {
+		ActiveCalibrateSystem.Connection.PutEvent("Started Level", m.currentLevel.Name)
+	}
 
 	// Create world
 	engi.WorldBounds.Max = engi.Point{float32(m.currentLevel.Width) * tileWidth, float32(m.currentLevel.Height) * tileHeight}
@@ -198,8 +219,15 @@ func (m *Maze) Update(entity *ecs.Entity, dt float32) {
 
 	if m.currentLevel.Grid[oldY][oldX] == TileGoal {
 		// Goal achieved!
+
 		if strings.HasPrefix(m.currentLevel.Name, "Random ") {
 			engi.Mailbox.Dispatch(MazeMessage{})
+			return
+		}
+
+		if m.sequence != SequenceNone {
+			m.cleanup()
+			m.initialize("")
 			return
 		}
 	}
@@ -230,7 +258,8 @@ func (m *Maze) Update(entity *ecs.Entity, dt float32) {
 			if m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] == TileRoute {
 				m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] = TileBlank
 				m.currentLevel.GridEntities[m.currentLevel.PlayerY][m.currentLevel.PlayerX].AddComponent(tileBlank)
-			} else if m.currentLevel.Grid[oldY][oldX] == TileError {
+			} else if m.currentLevel.Grid[oldY][oldX] == TileError ||
+				m.currentLevel.Grid[oldY][oldX] == TileBlank {
 				m.currentLevel.Grid[oldY][oldX] = TileRoute
 
 				if m.currentLevel.Grid[m.currentLevel.PlayerY][m.currentLevel.PlayerX] == TileHiddenError {
@@ -241,8 +270,17 @@ func (m *Maze) Update(entity *ecs.Entity, dt float32) {
 	})
 }
 
+type SequenceMode int
+
+const (
+	SequenceNone SequenceMode = iota
+	SequenceAscending
+	SequenceDescending
+)
+
 type MazeMessage struct {
 	LevelName string
+	Sequence  SequenceMode
 }
 
 func (MazeMessage) Type() string { return "MazeMessage" }

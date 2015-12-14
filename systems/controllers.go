@@ -2,6 +2,8 @@ package systems
 
 import (
 	"container/heap"
+	"fmt"
+
 	"github.com/paked/engi"
 )
 
@@ -38,46 +40,215 @@ func (kb *KeyboardController) Action(l Level) Action {
 	return ActionStop
 }
 
-type AutoPilotController struct{}
+type AutoPilotController struct {
+	streak int
+}
 
 func (ac *AutoPilotController) New() {}
 
 func (ac *AutoPilotController) Action(l Level) Action {
 	priority := []Tile{TileGoal, TileHiddenError, TileRoute, TileError}
 
+	action := ActionStop
+
 	for _, p := range priority {
 		if l.Grid[l.PlayerY][l.PlayerX-1] == p {
 			if p == TileHiddenError {
-				ActiveCalibrateSystem.Connection.PutEvent("Tile", "TileHiddenError")
+				ac.streak++
 			} else {
-				ActiveCalibrateSystem.Connection.PutEvent("Tile", "OnRoute")
+				ac.streak = 0
 			}
-			return ActionLeft
+			action = ActionLeft
+			break
 		} else if l.Grid[l.PlayerY][l.PlayerX+1] == p {
 			if p == TileHiddenError {
-				ActiveCalibrateSystem.Connection.PutEvent("Tile", "TileHiddenError")
+				ac.streak++
 			} else {
-				ActiveCalibrateSystem.Connection.PutEvent("Tile", "OnRoute")
+				ac.streak = 0
 			}
-			return ActionRight
+			action = ActionRight
+			break
 		} else if l.Grid[l.PlayerY-1][l.PlayerX] == p {
 			if p == TileHiddenError {
-				ActiveCalibrateSystem.Connection.PutEvent("Tile", "TileHiddenError")
+				ac.streak++
 			} else {
-				ActiveCalibrateSystem.Connection.PutEvent("Tile", "OnRoute")
+				ac.streak = 0
 			}
-			return ActionUp
+			action = ActionUp
+			break
 		} else if l.Grid[l.PlayerY+1][l.PlayerX] == p {
 			if p == TileHiddenError {
-				ActiveCalibrateSystem.Connection.PutEvent("Tile", "TileHiddenError")
+				ac.streak++
 			} else {
-				ActiveCalibrateSystem.Connection.PutEvent("Tile", "OnRoute")
+				ac.streak = 0
 			}
-			return ActionDown
+			action = ActionDown
+			break
 		}
 	}
 
-	return ActionStop
+	if action != ActionStop && ActiveCalibrateSystem != nil {
+		ActiveCalibrateSystem.Connection.PutEvent("Tile", fmt.Sprintf("ErrorStreak: %d", ac.streak))
+	}
+
+	return action
+}
+
+type ErroneousKeyboardController struct {
+	streak int
+}
+
+func (kb *ErroneousKeyboardController) New() {}
+
+func (kb *ErroneousKeyboardController) Action(l Level) Action {
+	action := ActionStop
+	priority := []Tile{TileHiddenError, TileError}
+
+	var hiddenPointOfError bool
+	var userError bool
+
+	if engi.Keys.Get(engi.D).Down() && l.IsAvailable(l.PlayerX+1, l.PlayerY) {
+		action = ActionRight
+	} else if engi.Keys.Get(engi.A).Down() && l.IsAvailable(l.PlayerX-1, l.PlayerY) {
+		action = ActionLeft
+	} else if engi.Keys.Get(engi.S).Down() && l.IsAvailable(l.PlayerX, l.PlayerY+1) {
+		action = ActionDown
+	} else if engi.Keys.Get(engi.W).Down() && l.IsAvailable(l.PlayerX, l.PlayerY-1) {
+		action = ActionUp
+	}
+
+	// Check if the user made a mistake
+	if action != ActionStop {
+		switch action {
+		case ActionRight:
+			if l.Grid[l.PlayerY][l.PlayerX+1] != TileRoute &&
+				l.Grid[l.PlayerY][l.PlayerX+1] != TileGoal &&
+				l.Grid[l.PlayerY][l.PlayerX+1] != TileError {
+				userError = true
+			}
+		case ActionLeft:
+			if l.Grid[l.PlayerY][l.PlayerX-1] != TileRoute &&
+				l.Grid[l.PlayerY][l.PlayerX-1] != TileGoal &&
+				l.Grid[l.PlayerY][l.PlayerX-1] != TileError {
+				userError = true
+			}
+		case ActionDown:
+			if l.Grid[l.PlayerY+1][l.PlayerX] != TileRoute &&
+				l.Grid[l.PlayerY+1][l.PlayerX] != TileGoal &&
+				l.Grid[l.PlayerY+1][l.PlayerX] != TileError {
+				userError = true
+			}
+		case ActionUp:
+			if l.Grid[l.PlayerY-1][l.PlayerX] != TileRoute &&
+				l.Grid[l.PlayerY-1][l.PlayerX] != TileGoal &&
+				l.Grid[l.PlayerY-1][l.PlayerX] != TileError {
+				userError = true
+			}
+		}
+	}
+
+	// If current tile is ErrorTile, then make a mistake
+	if action != ActionStop &&
+		l.Grid[l.PlayerY][l.PlayerX] == TileError || l.Grid[l.PlayerY][l.PlayerX] == TileHiddenError {
+		for _, p := range priority {
+			if l.Grid[l.PlayerY][l.PlayerX-1] == p {
+				if action != ActionLeft {
+					hiddenPointOfError = true
+				}
+				action = ActionLeft
+				break
+			} else if l.Grid[l.PlayerY][l.PlayerX+1] == p {
+				if action != ActionRight {
+					hiddenPointOfError = true
+				}
+				action = ActionRight
+				break
+			} else if l.Grid[l.PlayerY-1][l.PlayerX] == p {
+				if action != ActionUp {
+					hiddenPointOfError = true
+				}
+				action = ActionUp
+				break
+			} else if l.Grid[l.PlayerY+1][l.PlayerX] == p {
+				if action != ActionDown {
+					hiddenPointOfError = true
+				}
+				action = ActionDown
+				break
+			}
+		}
+	}
+
+	if action != ActionStop && ActiveCalibrateSystem != nil {
+		var distance int
+
+		switch action {
+		case ActionRight:
+			distance = kb.distanceToRoute(&l, l.PlayerX+1, l.PlayerY)
+		case ActionLeft:
+			distance = kb.distanceToRoute(&l, l.PlayerX-1, l.PlayerY)
+		case ActionDown:
+			distance = kb.distanceToRoute(&l, l.PlayerX, l.PlayerY+1)
+		case ActionUp:
+			distance = kb.distanceToRoute(&l, l.PlayerX, l.PlayerY-1)
+		}
+
+		fmt.Sprintf("%d", distance)
+
+		if hiddenPointOfError {
+			kb.streak++
+			ActiveCalibrateSystem.Connection.PutEvent("Tile", fmt.Sprintf("HiddenPointOfError: %d", kb.streak))
+		} else if userError {
+			kb.streak++
+			ActiveCalibrateSystem.Connection.PutEvent("Tile", fmt.Sprintf("UserError: %d", kb.streak))
+		} else {
+			kb.streak = 0
+			ActiveCalibrateSystem.Connection.PutEvent("Tile", fmt.Sprintf("NoError"))
+		}
+	}
+
+	return action
+}
+
+func (kb *ErroneousKeyboardController) distanceToRoute(l *Level, x, y int) int {
+	pq := &actionPriorityQueue{}
+	heap.Init(pq)
+	heap.Push(pq, &priorityQueItem{value: State{nil, x, y}})
+
+	for i := 0; pq.Len() > 0; i++ {
+		pqitem := heap.Pop(pq).(*priorityQueItem)
+		state := pqitem.value
+
+		if l.Grid[state.Y][state.X] == TileGoal ||
+			l.Grid[state.Y][state.X] == TileRoute ||
+			l.Grid[state.Y][state.X] == TileError {
+			return -pqitem.priority
+		}
+
+		var x2, y2 int
+		for _, a := range possibleActions(l, state.X, state.Y) {
+			switch a {
+			case ActionUp:
+				x2, y2 = state.X, state.Y-1
+			case ActionDown:
+				x2, y2 = state.X, state.Y+1
+			case ActionLeft:
+				x2, y2 = state.X-1, state.Y
+			case ActionRight:
+				x2, y2 = state.X+1, state.Y
+			default:
+				x2, y2 = state.X, state.Y
+			}
+
+			// to add something
+			heap.Push(pq, &priorityQueItem{
+				value:    State{nil, x2, y2},
+				priority: pqitem.priority - 1,
+			})
+		}
+	}
+
+	return 10000000
 }
 
 type State struct {

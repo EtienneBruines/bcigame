@@ -1,14 +1,52 @@
 package systems
 
 import (
+	"image/color"
+	"log"
+
+	"math/rand"
+
 	"github.com/EtienneBruines/bcigame/helpers"
 	"github.com/paked/engi"
 	"github.com/paked/engi/ecs"
-	"image/color"
-	"log"
-	"os"
 )
 
+var (
+	previousScene engi.Scene
+)
+
+type MenuItem struct {
+	Text     string
+	Callback func()
+	SubItems []*MenuItem
+	Parent   *MenuItem
+
+	menuBackground *ecs.Entity
+	menuLabel      *ecs.Entity
+}
+
+// MenuListener listens for ESC, and on ESC, changes the Scene to the MenuScene
+type MenuListener struct {
+	*ecs.System
+}
+
+func (*MenuListener) Type() string {
+	return "MenuListenerSystem"
+}
+
+func (m *MenuListener) New(w *ecs.World) {
+	m.System = ecs.NewSystem()
+	m.AddEntity(ecs.NewEntity([]string{m.Type()}))
+}
+
+func (m *MenuListener) Update(entity *ecs.Entity, dt float32) {
+	if engi.Keys.Get(engi.Escape).JustPressed() {
+		previousScene = engi.CurrentScene()
+		engi.SetSceneByName("MenuScene", true)
+	}
+}
+
+// Some variables for the MenuSystem
 var (
 	MenuColorBackground          = color.NRGBA{255, 255, 255, 125}
 	MenuColorBox                 = color.NRGBA{180, 180, 180, 255}
@@ -24,16 +62,7 @@ var (
 	menuPadding         = float32(100)
 )
 
-type MenuItem struct {
-	Text     string
-	Callback func()
-	SubItems []*MenuItem
-	Parent   *MenuItem
-
-	menuBackground *ecs.Entity
-	menuLabel      *ecs.Entity
-}
-
+// Menu is a System that manages moving around in a Menu
 type Menu struct {
 	*ecs.System
 	World *ecs.World
@@ -49,9 +78,7 @@ type Menu struct {
 	itemSelected     *MenuItem
 }
 
-func (*Menu) Type() string {
-	return "MenuSystem"
-}
+func (*Menu) Type() string { return "MenuSystem" }
 
 func (m *Menu) New(w *ecs.World) {
 	m.System = ecs.NewSystem()
@@ -60,9 +87,10 @@ func (m *Menu) New(w *ecs.World) {
 	specificLevel := &MenuItem{Text: "Play specific level ..."}
 
 	callbackGenerator := func(l *Level) func() {
-		msg := MazeMessage{l.Name}
+		msg := MazeMessage{LevelName: l.Name}
+
 		return func() {
-			m.closeMenu()
+			engi.SetSceneByName("BCIGame", true)
 			engi.Mailbox.Dispatch(msg)
 		}
 	}
@@ -76,20 +104,28 @@ func (m *Menu) New(w *ecs.World) {
 	}
 
 	e := ecs.NewEntity([]string{m.Type()})
-	//e.AddComponent(&engi.UnpauseComponent{})
+
 	m.AddEntity(e)
 	m.items = []*MenuItem{
 		{Text: "Random Level", Callback: func() {
-			m.closeMenu()
-			engi.Mailbox.Dispatch(MazeMessage{})
+			engi.SetSceneByName("BCIGame", true)
 		}},
 		specificLevel,
+		{Text: "Start Experiment", Callback: func() {
+			engi.SetSceneByName("BCIGame", true)
+			var msg MazeMessage
+			if rand.Intn(2) == 0 {
+				msg.Sequence = SequenceAscending
+			} else {
+				msg.Sequence = SequenceDescending
+			}
+			engi.Mailbox.Dispatch(msg)
+		}},
 		{Text: "Calibrate", Callback: func() {
-			m.closeMenu()
-			engi.Mailbox.Dispatch(CalibrateMessage{true})
+			engi.SetSceneByName("CalibrateScene", false)
 		}},
 		{Text: "Exit", Callback: func() {
-			os.Exit(0)
+			engi.Exit()
 		}},
 	}
 
@@ -107,71 +143,65 @@ func (m *Menu) New(w *ecs.World) {
 		menuWidth-2*menuItemPadding, menuItemHeight,
 		engi.HUDGround+2,
 	)
+
+	m.openMenu()
 }
 
-func (m *Menu) Update(entity *ecs.Entity, dt float32) {
-	// Check for ESCAPE
+func (m *Menu) Update(e *ecs.Entity, dt float32) {
 	if engi.Keys.Get(engi.Escape).JustPressed() {
-		if m.menuActive {
-			if m.itemSelected == nil {
-				m.closeMenu()
-			} else {
-				selected := m.itemSelected
-				m.closeMenu()
-				m.itemSelected = selected.Parent
-				m.openMenu()
-			}
+		if m.itemSelected == nil {
+			// Go back to previous Scene
+			engi.SetScene(previousScene, false)
 		} else {
+			selected := m.itemSelected
+			m.closeMenu()
+			m.itemSelected = selected.Parent
 			m.openMenu()
-			return // so wait one frame before the menu gets to be used
 		}
 	}
 
-	if m.menuActive {
-		var updated bool
-		var oldFocus = m.menuFocus
-		var itemList []*MenuItem
-		if m.itemSelected == nil {
-			itemList = m.items
-		} else {
-			itemList = m.itemSelected.SubItems
-		}
+	// And something with this:
 
-		if engi.Keys.Get(engi.ArrowDown).JustPressed() {
-			m.menuFocus++
-			if m.menuFocus >= len(itemList) {
-				m.menuFocus = 0
-			}
-			updated = true
-		} else if engi.Keys.Get(engi.ArrowUp).JustPressed() {
-			m.menuFocus--
-			if m.menuFocus < 0 {
-				m.menuFocus = len(itemList) - 1
-			}
-			updated = true
-		}
+	var updated bool
+	var oldFocus = m.menuFocus
+	var itemList []*MenuItem
+	if m.itemSelected == nil {
+		itemList = m.items
+	} else {
+		itemList = m.itemSelected.SubItems
+	}
 
-		if updated {
-			// note that these replace the old RenderComponents
-			itemList[oldFocus].menuBackground.AddComponent(m.defaultBackground)
-			itemList[m.menuFocus].menuBackground.AddComponent(m.focusBackground)
+	if engi.Keys.Get(engi.ArrowDown).JustPressed() {
+		m.menuFocus++
+		if m.menuFocus >= len(itemList) {
+			m.menuFocus = 0
 		}
+		updated = true
+	} else if engi.Keys.Get(engi.ArrowUp).JustPressed() {
+		m.menuFocus--
+		if m.menuFocus < 0 {
+			m.menuFocus = len(itemList) - 1
+		}
+		updated = true
+	}
 
-		if engi.Keys.Get(engi.Space).JustPressed() || engi.Keys.Get(engi.Enter).JustPressed() {
-			itemList[m.menuFocus].Callback()
-			if len(itemList[m.menuFocus].SubItems) > 0 {
-				m.closeMenu()
-				m.itemSelected = m.items[m.menuFocus]
-				m.openMenu()
-			}
+	if updated {
+		// note that these replace the old RenderComponents
+		itemList[oldFocus].menuBackground.AddComponent(m.defaultBackground)
+		itemList[m.menuFocus].menuBackground.AddComponent(m.focusBackground)
+	}
+
+	if engi.Keys.Get(engi.Space).JustPressed() || engi.Keys.Get(engi.Enter).JustPressed() {
+		itemList[m.menuFocus].Callback()
+		if len(itemList[m.menuFocus].SubItems) > 0 {
+			m.closeMenu()
+			m.itemSelected = m.items[m.menuFocus]
+			m.openMenu()
 		}
 	}
 }
 
 func (m *Menu) closeMenu() {
-	// Unpause everything
-	//engi.Mailbox.Dispatch(engi.PauseMessage{false})
-
 	// Remove all entities
 	for _, e := range m.menuEntities {
 		m.World.RemoveEntity(e)
@@ -182,9 +212,6 @@ func (m *Menu) closeMenu() {
 }
 
 func (m *Menu) openMenu() {
-	// Pause everything
-	//engi.Mailbox.Dispatch(engi.PauseMessage{true})
-
 	m.menuFocus = 0
 
 	// Create the visual menu

@@ -2,6 +2,7 @@ package systems
 
 import (
 	"image"
+	"image/color"
 	"log"
 	"strconv"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/gonum/plot/vg/vgimg"
 	"github.com/paked/engi"
 	"github.com/paked/engi/ecs"
-	"image/color"
 )
 
 var (
@@ -23,6 +23,8 @@ var (
 type Calibrate struct {
 	*ecs.System
 	World *ecs.World
+
+	Visualize bool
 
 	Connection *gobci.Connection
 	Header     *gobci.Header
@@ -50,43 +52,25 @@ func (c *Calibrate) New(w *ecs.World) {
 
 	err = c.Connection.FlushData()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("FlushData error: ", err)
 	}
 
 	// Get latest header info
 	c.Header, err = c.Connection.GetHeader()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("GetHeader error: ", err)
 	}
-
-	engi.Mailbox.Listen("CalibrateMessage", func(m engi.Message) {
-		cm, ok := m.(CalibrateMessage)
-		if !ok {
-			return
-		}
-
-		if cm.Enable {
-			c.drawScene()
-		} else {
-			c.destroyScene()
-		}
-	})
-}
-
-func (c *Calibrate) destroyScene() {
-	// engi.Mailbox.Dispatch(engi.PauseMessage{false})
-}
-
-func (c *Calibrate) drawScene() {
-	// engi.Mailbox.Dispatch(engi.PauseMessage{true})
 
 	for i := uint32(0); i < c.Header.NChannels; i++ {
 		e := ecs.NewEntity([]string{c.Type(), "RenderSystem"})
 		espace := &engi.SpaceComponent{engi.Point{0, float32(i * (3*dpi + 10))}, 0, 0}
 		e.AddComponent(espace)
-		//e.AddComponent(&engi.UnpauseComponent{})
-		e.AddComponent(&CalibrateComponent{i})
 
+		if c.Visualize {
+			e.AddComponent(&CalibrateComponent{i})
+		}
+
+		c.AddEntity(e)
 		c.World.AddEntity(e)
 	}
 }
@@ -94,6 +78,7 @@ func (c *Calibrate) drawScene() {
 func (c *Calibrate) Pre() {
 	c.frameIndex++
 	c.frameIndex = c.frameIndex % 6
+
 	if c.frameIndex != 0 {
 		return
 	}
@@ -102,7 +87,7 @@ func (c *Calibrate) Pre() {
 
 	c.Header.NSamples, c.Header.NEvents, err = c.Connection.WaitData(0, 0, 0)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("WaitData error: ", err)
 	}
 
 	// Get actual data
@@ -115,9 +100,13 @@ func (c *Calibrate) Pre() {
 		max = c.Header.NSamples - 1
 	}
 
+	if max == 0 {
+		return
+	}
+
 	samples, err := c.Connection.GetData(min, max)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("GetData error: ", err)
 	}
 
 	// Visualizing the channels
